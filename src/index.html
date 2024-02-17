@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Galatea</title>
+    <link href="style.css" rel="stylesheet" />
+    <script src="scripts/midi.js"></script>
+    <script src="scripts/pointer.js"></script>
+    <script src="scripts/script.js"></script>
+  </head>
+  <body>
+    <h1>Galatea</h1>
+    <canvas id="controlSurface">
+      Your browser does not support canvas element.
+    </canvas>
+    <button type="button" id="fullscreenButton">Set fullscreen</button>
+    <ul id="settingsList">
+      <li>
+        <label>
+          MIDI outputs:
+          <select id="midiOutputSelector"></select>
+        </label>
+      </li>
+      <li>
+        <label>
+          Leftmost Pitch:
+          <input id="lowestPitch" type="number" />
+        </label>
+      </li>
+      <li>
+        <label>
+          Rightmost Pitch:
+          <input id="highestPitch" type="number" />
+        </label>
+      </li>
+      <li>
+        <label>
+          Pitch Bend Half-Range:
+          <input id="pitchBendHalfRange" type="number" />
+        </label>
+      </li>
+    </ul>
+    
+
+  </body>
+</html>
