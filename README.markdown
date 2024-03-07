@@ -6,11 +6,11 @@ Galatea allows you to turn a graphic tablet, a mouse, or any device that acts as
 Using
 ------
 
-The process for using Galatea is a little involved (the technical reason is: major web browsers will only allow the Web MIDI API to run in a "secure" context, which includes pages served over HTTPS or locally over HTTP, but *not* pages opened as local files).
+The process for using Galatea is a little involved[^1].
 
 ### Launching the page
 
-The following is a possible course of action. If you know what you're doing, feel free to use another way to serve the files (note that for some reason, the page is not considered a secure context when served using the Python module `http.server`)
+The following is a possible course of action. If you know what you're doing, feel free to use another way to serve the files[^2].
 
 1. [Install Node.js and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm).
 2. Open a terminal, change directory into the contents of the `src/` subdirectory.
@@ -32,3 +32,5 @@ Open the page with your browser, click "Allow" when prompted to allow web MIDI, 
 * Multiple pointer input (e.g. tablet touch)
 * Pitch correction, possibly via a separate VST/CLAP plugin, possibly a commercial one
 
+[^1]: The technical reason is: major web browsers will only allow the Web MIDI API to run in a "secure" context, which includes pages served over HTTPS or locally over HTTP, but *not* pages opened as local files.
+[^2]: Note that for some reason, the page is not considered a secure context when served using the Python module `http.server`.
