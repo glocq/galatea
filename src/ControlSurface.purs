@@ -44,11 +44,11 @@ import Canvas as Canvas
 {- The component -}
 
 component :: forall query output m. MonadEffect m
-          => H.Component query Types.PitchRange output m
+          => H.Component query Types.Settings output m
 component = H.mkComponent
-  { initialState: \input -> { height: 0.0 -- will be updated at initialization
-                            , width:  0.0 -- based on actual dimensions
-                            , pitchRange: input
+  { initialState: \input -> { height:   0.0 -- will be updated at initialization
+                            , width:    0.0 -- based on actual dimensions
+                            , settings: input
                             }
   , render: render
   , eval: H.mkEval $ H.defaultEval 
@@ -60,9 +60,11 @@ component = H.mkComponent
 
 {- Types -}
 
-type State = { height     :: Number
-             , width      :: Number
-             , pitchRange :: Types.PitchRange
+type Input = {}
+
+type State = { height   :: Number
+             , width    :: Number
+             , settings :: Types.Settings
              }
 
 data Action = Initialize
@@ -220,8 +222,8 @@ paintBackgroundOnCanvas :: forall output m. MonadEffect m
                         -> H.HalogenM State Action () output m Unit
 paintBackgroundOnCanvas canvas = do
   state <- H.get
-  let lowPitch  = state.pitchRange.low
-  let highPitch = state.pitchRange.high
+  let lowPitch  = state.settings.pitchRange.low
+  let highPitch = state.settings.pitchRange.high
   let width  = state.width
   let height = state.height
   let wholeCanvas = { x: 0.0

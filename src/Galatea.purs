@@ -20,10 +20,7 @@ import Types          as Types
 
 -- Types related to this component
 
-type State = { pitchRange :: Types.PitchRange }
-
-defaultState :: State
-defaultState = { pitchRange: Types.defaultPitchRange }
+type State = Types.Settings
 
 data Action = MidiTest
 
@@ -43,7 +40,7 @@ _controlSurface = Proxy
 component :: forall query input output m. MonadAff m
           => H.Component query input output m
 component = H.mkComponent
-  { initialState: const defaultState
+  { initialState: const Types.defaultSettings
   , render: const $ HTML.div_
       [ HTML.button
           [ HTML.Ev.onClick $ const MidiTest ]
@@ -53,7 +50,7 @@ component = H.mkComponent
               CSS.width  $ CSS.pct 100.0
               CSS.height $ CSS.px  300.0
           ]
-          [ HTML.slot_ _controlSurface unit ControlSurface.component Types.defaultPitchRange ]
+          [ HTML.slot_ _controlSurface unit ControlSurface.component Types.defaultSettings ]
       , HTML.slot_ _midiHub unit MidiHub.component unit
       ]
   , eval: H.mkEval $ H.defaultEval
