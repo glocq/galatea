@@ -5,8 +5,8 @@ import Prelude
 import Data.Maybe       (Maybe (..))
 import Data.List        ((..))
 import Data.Int         (floor, ceil, toNumber)
-import Data.Foldable    (traverse_)
 import Data.Traversable (for_)
+import Effect           (Effect)
 import Effect.Class     (class MonadEffect, liftEffect)
 import Effect.Console   (log)
 import Data.Number.Format (toString)
@@ -115,7 +115,7 @@ render _ =
 initialize :: forall output m. MonadEffect m
            => H.HalogenM State Action () output m Unit
 initialize = do
-  resizedEmitter <- newResizedEmitter
+  resizedEmitter <- newResizedEmitter resizedCallback
   _ <- H.subscribe resizedEmitter
   pure unit
 
@@ -127,7 +127,6 @@ handleAction :: forall output m. MonadEffect m
 handleAction = case _ of
   Initialize -> initialize
   Resize w h -> do
-    liftEffect $ log $ toString w
     H.modify_ $ \state -> state { height = h, width = w }
     handleAction PaintBackground
   PaintBackground -> paintBackground
@@ -138,21 +137,17 @@ handleAction = case _ of
 -- Creates a new resize observer that will emit a Resize action
 -- upon resizes of this component's main div. See the javascript Resize API.
 newResizedEmitter :: forall output m. MonadEffect m
-                  => H.HalogenM State Action () output m (Subscription.Emitter Action)
-newResizedEmitter = do
+                  => (Subscription.Listener Action -> Resize.ResizeObserverEntry -> Effect Unit)
+                  -> H.HalogenM State Action () output m (Subscription.Emitter Action)
+newResizedEmitter callback = do
   { emitter, listener } <- liftEffect Subscription.create
-  -- This callback will get called every time the component gets resized.
-  -- It triggers this component's Resize action with the new width and height.
-  let callback = \entry -> Subscription.notify listener $
-                           Resize entry.contentRect.width
-                                  entry.contentRect.height
   -- Create a new ResizeObserver. The observer's constructor takes as input
   -- a callback with arguments:
   -- - A ResizeObserver, which we have no use for;
   -- - A list of entries. There should be just one in our case, but we iterate
   --   with `for_` just in case.
   observer <- liftEffect $ Resize.resizeObserver $ \entries _ ->
-                           for_ entries $ \entry -> callback entry
+                           for_ entries $ \entry -> callback listener entry
   -- Attach the observer to our main element. This is a bit tedious because
   -- we have to pattern match several times to convert from our label
   -- "controlSurface" into an `Element`
@@ -166,6 +161,18 @@ newResizedEmitter = do
       liftEffect $ Resize.observe (Elt.toElement controlSurface) { box: Resize.ContentBox } observer
   -- Return the observer so we can subscribe to its updates.
   pure emitter
+
+
+
+
+-- This callback will get called every time the component gets resized.
+-- It triggers this component's Resize action with the new width and height.
+resizedCallback :: Subscription.Listener Action
+                -> Resize.ResizeObserverEntry
+                -> Effect Unit
+resizedCallback listener entry = Subscription.notify listener $
+                                   Resize entry.contentRect.width
+                                          entry.contentRect.height
 
 
 
