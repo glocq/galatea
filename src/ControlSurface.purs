@@ -1,6 +1,7 @@
 module ControlSurface (component, Slot) where
 
--- General-purpose module
+
+-- General-purpose modules
 import Prelude
 import Data.Maybe       (Maybe (..))
 import Data.List        ((..))
@@ -9,17 +10,16 @@ import Data.Traversable (for_)
 import Effect           (Effect)
 import Effect.Class     (class MonadEffect, liftEffect)
 import Effect.Console   (log)
-import Data.Number.Format (toString)
 -- Halogen and web-related modules
 import Halogen                          as H
 import Halogen.HTML                     as HTML
-import Halogen.HTML.Properties          as HTML.Prop
+import Halogen.HTML.Properties          as H.Prop
 import Halogen.HTML.CSS     (style)     as H.CSS
 import CSS                              as CSS
-import Halogen.Subscription             as Subscription
+import Halogen.Subscription             as H.Sub
 import Web.ResizeObserver               as Resize
-import Web.HTML.HTMLElement (toElement) as Elt
-import Web.HTML.HTMLCanvasElement       as CanvasElt
+import Web.HTML.HTMLElement (toElement) as HTML.Elt
+import Web.HTML.HTMLCanvasElement       as HTML.Canvas
 import Color                            as Color
 -- Local modules
 import Types  as Types
@@ -87,7 +87,7 @@ type Slot id = forall query output. H.Slot query output id -- just a helper type
 render :: forall w. State -> HTML.HTML w Action
 render _ =
   HTML.div
-    [ HTML.Prop.ref $ H.RefLabel "controlSurface"
+    [ H.Prop.ref $ H.RefLabel "controlSurface"
     , H.CSS.style $ do
         CSS.height $ CSS.pct 100.0
         CSS.width  $ CSS.pct 100.0
@@ -95,20 +95,28 @@ render _ =
         CSS.position CSS.relative
     ]
     [ HTML.canvas
-        [ HTML.Prop.ref $ H.RefLabel "backgroundCanvas"
+        [ H.Prop.ref $ H.RefLabel backgroundCanvasID
         , H.CSS.style $ layerProperties 0
         ]
     , HTML.canvas
-        [ HTML.Prop.ref $ H.RefLabel "pitchRangeCanvas"
+        [ H.Prop.ref $ H.RefLabel pitchRangeCanvasID
         , H.CSS.style $ layerProperties 1
         ]
     , HTML.canvas
-        [ HTML.Prop.ref $ H.RefLabel "pointerCanvas"
+        [ H.Prop.ref $ H.RefLabel pointerCanvasID
         , H.CSS.style $ layerProperties 2
         ]
     ]
 
 
+backgroundCanvasID :: String
+backgroundCanvasID = "backgroundCanvas"
+
+pitchRangeCanvasID :: String
+pitchRangeCanvasID = "pitchRangeCanvas"
+
+pointerCanvasID :: String
+pointerCanvasID = "pointerCanvas"
 
 
 
@@ -128,8 +136,14 @@ handleAction = case _ of
   Initialize -> initialize
   Resize w h -> do
     H.modify_ $ \state -> state { height = h, width = w }
-    handleAction PaintBackground
+    maybeBackground <- getCanvas $ H.RefLabel backgroundCanvasID
+    for_ maybeBackground $ \background -> liftEffect $ do
+      Canvas.setWidth  background w
+      Canvas.setHeight background h
+    handleAction PaintBackground 
   PaintBackground -> paintBackground
+
+
 
 
 
@@ -137,10 +151,10 @@ handleAction = case _ of
 -- Creates a new resize observer that will emit a Resize action
 -- upon resizes of this component's main div. See the javascript Resize API.
 newResizedEmitter :: forall output m. MonadEffect m
-                  => (Subscription.Listener Action -> Resize.ResizeObserverEntry -> Effect Unit)
-                  -> H.HalogenM State Action () output m (Subscription.Emitter Action)
+                  => (H.Sub.Listener Action -> Resize.ResizeObserverEntry -> Effect Unit)
+                  -> H.HalogenM State Action () output m (H.Sub.Emitter Action)
 newResizedEmitter callback = do
-  { emitter, listener } <- liftEffect Subscription.create
+  { emitter, listener } <- liftEffect H.Sub.create
   -- Create a new ResizeObserver. The observer's constructor takes as input
   -- a callback with arguments:
   -- - A ResizeObserver, which we have no use for;
@@ -158,7 +172,7 @@ newResizedEmitter callback = do
       -- We've done all the pattern matching. Now we can actually attach our
       -- observer to the element. We specify that the size we're interested in
       -- is the content box of the main element.
-      liftEffect $ Resize.observe (Elt.toElement controlSurface) { box: Resize.ContentBox } observer
+      liftEffect $ Resize.observe (HTML.Elt.toElement controlSurface) { box: Resize.ContentBox } observer
   -- Return the observer so we can subscribe to its updates.
   pure emitter
 
@@ -167,13 +181,23 @@ newResizedEmitter callback = do
 
 -- This callback will get called every time the component gets resized.
 -- It triggers this component's Resize action with the new width and height.
-resizedCallback :: Subscription.Listener Action
+resizedCallback :: H.Sub.Listener Action
                 -> Resize.ResizeObserverEntry
                 -> Effect Unit
-resizedCallback listener entry = Subscription.notify listener $
+resizedCallback listener entry = H.Sub.notify listener $
                                    Resize entry.contentRect.width
                                           entry.contentRect.height
 
+
+
+
+getCanvas :: forall output m.
+             H.RefLabel -> H.HalogenM State Action () output m (Maybe HTML.Canvas.HTMLCanvasElement)
+getCanvas label = do
+  maybeElement <- H.getHTMLElementRef label
+  case maybeElement of
+    Nothing      -> pure Nothing
+    Just element -> pure $ HTML.Canvas.fromHTMLElement element
 
 
 
@@ -182,19 +206,17 @@ resizedCallback listener entry = Subscription.notify listener $
 paintBackground :: forall output m. MonadEffect m
                 => H.HalogenM State Action () output m Unit
 paintBackground = do
-  maybeBackground <- H.getHTMLElementRef (H.RefLabel "backgroundCanvas")
+  maybeBackground <- getCanvas $ H.RefLabel backgroundCanvasID
   case maybeBackground of
     Nothing -> liftEffect $ log "Error: Failed to get background canvas. This should not have happened."
-    Just background -> case CanvasElt.fromHTMLElement background of
-      Nothing -> liftEffect $ log "Error: Background is not a canvas. This should not have happened."
-      Just canvas -> paintBackgroundOnCanvas canvas
+    Just background -> paintBackgroundOnCanvas background
 
 
 
 
 -- Given a canvas element, paint on it a piano-like(ish) background
 paintBackgroundOnCanvas :: forall output m. MonadEffect m
-                        => CanvasElt.HTMLCanvasElement
+                        => HTML.Canvas.HTMLCanvasElement
                         -> H.HalogenM State Action () output m Unit
 paintBackgroundOnCanvas canvas = do
   state <- H.get
@@ -209,14 +231,12 @@ paintBackgroundOnCanvas canvas = do
                     }
   let context = Canvas.context2D canvas
   liftEffect $ do
-    log $ toString wholeCanvas.width
-    log $ toString wholeCanvas.height
     Canvas.clearRect    context wholeCanvas
     Canvas.setFillStyle context Color.white
     Canvas.fillRect     context wholeCanvas
     for_ (floor lowPitch .. ceil highPitch) \note -> do
       let position = width * (toNumber note - lowPitch) / (highPitch - lowPitch)
-      -- Paint a line for each semitone (TODO doesn't work)
+      -- Paint a line for each semitone
       Canvas.beginPath context
       Canvas.moveTo context position 0.0
       Canvas.lineTo context position height

@@ -7,11 +7,14 @@ module Canvas ( Context2D
               , moveTo
               , lineTo
               , stroke
+              , setWidth
+              , setHeight
               ) where
 
 import Prelude
+
+import Color  (Color, toHexString)
 import Effect (Effect)
-import Color (Color, toHexString)
 import Web.HTML.HTMLCanvasElement as Canvas
 
 
@@ -28,11 +31,9 @@ foreign import beginPath :: Context2D -> Effect Unit
 foreign import moveTo    :: Context2D -> Number -> Number -> Effect Unit
 foreign import lineTo    :: Context2D -> Number -> Number -> Effect Unit
 foreign import stroke    :: Context2D -> Effect Unit
+foreign import setWidth  :: Canvas.HTMLCanvasElement -> Number -> Effect Unit
+foreign import setHeight :: Canvas.HTMLCanvasElement -> Number -> Effect Unit
 
-
-foreign import clearRectImpl    :: Context2D -> Number -> Number -> Number -> Number -> Effect Unit
-foreign import setFillStyleImpl :: Context2D -> String -> Effect Unit
-foreign import fillRectImpl     :: Context2D -> Number -> Number -> Number -> Number -> Effect Unit
 
 clearRect :: Context2D -> Rectangle -> Effect Unit
 clearRect context rectangle = clearRectImpl context rectangle.x
@@ -48,3 +49,11 @@ fillRect context rectangle = fillRectImpl context rectangle.x
                                                   rectangle.y
                                                   rectangle.width
                                                   rectangle.height
+
+
+
+-- Raw implementations
+
+foreign import clearRectImpl    :: Context2D -> Number -> Number -> Number -> Number -> Effect Unit
+foreign import setFillStyleImpl :: Context2D -> String -> Effect Unit
+foreign import fillRectImpl     :: Context2D -> Number -> Number -> Number -> Number -> Effect Unit

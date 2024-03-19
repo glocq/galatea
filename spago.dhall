@@ -26,11 +26,10 @@ to generate this file without the comments in this block.
   , "integers"
   , "lists"
   , "maybe"
-  , "numbers"
   , "prelude"
   , "web-html"
   , "web-resize-observer"
   ]
 , packages = ./packages.dhall
-, sources = [ "src/**/*.purs", "test/**/*.purs" ]
+, sources = [ "src/**/*.purs" ]
 }

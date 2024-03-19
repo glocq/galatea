@@ -32,3 +32,11 @@ export const lineTo = context => x => y => () => {
 export const stroke = context => () => {
   context.stroke();
 }
+
+export const setWidth = canvasElement => width => () => {
+  canvasElement.width = width;
+}
+
+export const setHeight = canvasElement => height => () => {
+  canvasElement.height = height;
+}
