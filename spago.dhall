@@ -24,7 +24,6 @@ to generate this file without the comments in this block.
   , "halogen-css"
   , "halogen-subscriptions"
   , "integers"
-  , "lists"
   , "maybe"
   , "prelude"
   , "web-html"

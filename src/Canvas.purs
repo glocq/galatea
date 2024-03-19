@@ -1,4 +1,5 @@
 module Canvas ( Context2D
+              , Rectangle
               , context2D
               , clearRect
               , setFillStyle

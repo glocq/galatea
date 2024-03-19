@@ -4,9 +4,10 @@ module ControlSurface (component, Slot) where
 -- General-purpose modules
 import Prelude
 import Data.Maybe       (Maybe (..))
-import Data.List        ((..))
+import Data.Array       ((..))
 import Data.Int         (floor, ceil, toNumber)
 import Data.Traversable (for_)
+import Data.Foldable    (elem)
 import Effect           (Effect)
 import Effect.Class     (class MonadEffect, liftEffect)
 import Effect.Console   (log)
@@ -224,6 +225,7 @@ paintBackgroundOnCanvas canvas = do
   state <- H.get
   let lowPitch  = state.settings.pitchRange.low
   let highPitch = state.settings.pitchRange.high
+  let blackKeyRatio = state.settings.blackKeyRatio
   let width  = state.width
   let height = state.height
   let wholeCanvas = { x: 0.0
@@ -237,13 +239,23 @@ paintBackgroundOnCanvas canvas = do
     Canvas.setFillStyle context Color.white
     Canvas.fillRect     context wholeCanvas
     for_ (floor lowPitch .. ceil highPitch) \note -> do
-      let position = width * (toNumber note - lowPitch) / (highPitch - lowPitch)
+      let semitoneWidth = width / (highPitch - lowPitch)
+      let position = semitoneWidth * (toNumber note - lowPitch)
+      -- Paint a grey band around "black" semitones
+      when ((note `mod` 12) `elem` [1, 3, 6, 8, 10]) $ do
+        Canvas.setFillStyle context $ Color.graytone 0.5
+        let blackWidth = blackKeyRatio * semitoneWidth
+        let keyArea = { x: position - blackWidth / 2.0
+                      , y: 0.0
+                      , width:  blackWidth
+                      , height: height
+                      }
+        Canvas.fillRect context keyArea
       -- Paint a line for each semitone
       Canvas.beginPath context
       Canvas.moveTo context position 0.0
       Canvas.lineTo context position height
       Canvas.stroke context
-      -- TODO paint a grey band around "black" semitones
 
 
 
