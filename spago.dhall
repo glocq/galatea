@@ -26,8 +26,11 @@ to generate this file without the comments in this block.
   , "integers"
   , "maybe"
   , "prelude"
+  , "web-events"
   , "web-html"
+  , "web-pointerevents"
   , "web-resize-observer"
+  , "web-uievents"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs" ]

@@ -15,9 +15,14 @@ import Effect.Console   (log)
 import Halogen                          as H
 import Halogen.HTML                     as HTML
 import Halogen.HTML.Properties          as H.Prop
-import Halogen.HTML.CSS     (style)     as H.CSS
+import Halogen.HTML.Events              as H.Ev
+import Halogen.HTML.CSS (style)         as H.CSS
 import CSS                              as CSS
 import Halogen.Subscription             as H.Sub
+import Web.Event.Event (EventType(..))  as Event
+import Web.Event.Internal.Types (Event) as Event.Types
+import Web.PointerEvent.PointerEvent    as Ptr
+import Web.UIEvent.MouseEvent           as Mouse
 import Web.ResizeObserver               as Resize
 import Web.HTML.HTMLElement (toElement) as HTML.Elt
 import Web.HTML.HTMLCanvasElement       as HTML.Canvas
@@ -47,9 +52,11 @@ import Canvas as Canvas
 component :: forall query output m. MonadEffect m
           => H.Component query Types.Settings output m
 component = H.mkComponent
-  { initialState: \input -> { height:   0.0 -- will be updated at initialization
-                            , width:    0.0 -- based on actual dimensions
-                            , settings: input
+  { initialState: \input -> { height:       0.0 -- will be updated at initialization
+                            , width:        0.0 -- based on actual dimensions
+                            , settings:     input
+                            , pointerState: defaultPointerState
+                            , musicState:   Nothing -- no note playing
                             }
   , render: render
   , eval: H.mkEval $ H.defaultEval 
@@ -63,14 +70,41 @@ component = H.mkComponent
 
 type Input = {}
 
-type State = { height   :: Number
-             , width    :: Number
-             , settings :: Types.Settings
+type State = { height       :: Number
+             , width        :: Number
+             , settings     :: Types.Settings
+             , pointerState :: PointerState
+             , musicState   :: MusicState
              }
+
+type PointerState = { contact  :: Boolean -- True iff pointer is in contact
+                    , x        :: Number
+                    , y        :: Number
+                    , pressure :: Number -- Normalized pressure between 0.0 and 1.0
+                    }
+
+defaultPointerState :: PointerState
+defaultPointerState = { contact:  false
+                      , x:        0.0
+                      , y:        0.0
+                      , pressure: 0.0
+                      }
+
+-- Nothing is no note is playing, Just baseNote if a NoteOn was sent
+-- with MIDI pitch baseNote
+type MusicState = Maybe { basePitch :: Number }
+
 
 data Action = Initialize
             | Resize Number Number
             | PaintBackground
+            -- Pointer events
+            | PointerDown Event.Types.Event
+            | PointerUp   Event.Types.Event
+            | PointerMove Event.Types.Event
+            -- Compare pointer state to former music state,
+            -- output MIDI if necessary, and update music state:
+            | MusicUpdate
 
 type Slot id = forall query output. H.Slot query output id -- just a helper type for parents
 
@@ -106,7 +140,10 @@ render _ =
         , H.CSS.style $ layerProperties 1
         ]
     , HTML.canvas
-        [ H.Prop.ref $ H.RefLabel pointerCanvasID
+        [ H.Ev.handler (Event.EventType "pointerdown") PointerDown
+        , H.Ev.handler (Event.EventType "pointerup"  ) PointerUp
+        , H.Ev.handler (Event.EventType "pointermove") PointerMove
+        , H.Prop.ref $ H.RefLabel pointerCanvasID
         , H.CSS.style $ layerProperties 2
         ]
     ]
@@ -136,17 +173,49 @@ initialize = do
 handleAction :: forall output m. MonadEffect m
              => Action -> H.HalogenM State Action () output m Unit
 handleAction = case _ of
+
   Initialize -> initialize
+
   Resize w h -> do
     H.modify_ $ \state -> state { height = h, width = w }
     maybeBackground <- getCanvas $ H.RefLabel backgroundCanvasID
     for_ maybeBackground $ \background -> liftEffect $ do
       Canvas.setWidth  background w
       Canvas.setHeight background h
-    handleAction PaintBackground 
+    handleAction PaintBackground
+
   PaintBackground -> paintBackground
 
+  PointerDown event -> case Ptr.fromEvent event of
+    Nothing -> liftEffect $ log "Not a pointer event! This should not have happened."
+    Just ptrEv -> do
+      H.modify_ \state ->
+        state { pointerState { contact  = true
+                             , x        = toNumber $ Mouse.clientX $ Ptr.toMouseEvent ptrEv
+                             , y        = toNumber $ Mouse.clientY $ Ptr.toMouseEvent ptrEv
+                             , pressure = Ptr.pressure ptrEv
+                             }
+              }
+      handleAction MusicUpdate
 
+  PointerUp event -> case Ptr.fromEvent event of
+    Nothing -> liftEffect $ log "Not a pointer event! This should not have happened."
+    Just _ -> do
+      H.modify_ \state -> state { pointerState { contact = false } }
+      handleAction MusicUpdate
+
+  PointerMove event -> case Ptr.fromEvent event of
+    Nothing -> liftEffect $ log "Not a pointer event! This should not have happened."
+    Just ptrEv -> do
+      H.modify_ \state ->
+        state { pointerState { x        = toNumber $ Mouse.clientX $ Ptr.toMouseEvent ptrEv
+                             , y        = toNumber $ Mouse.clientY $ Ptr.toMouseEvent ptrEv
+                             , pressure = Ptr.pressure ptrEv
+                             }
+              }
+      handleAction MusicUpdate
+
+  MusicUpdate -> liftEffect $ log "TODO implement music handling"
 
 
 
@@ -256,6 +325,7 @@ paintBackgroundOnCanvas canvas = do
       Canvas.moveTo context position 0.0
       Canvas.lineTo context position height
       Canvas.stroke context
+
 
 
 
