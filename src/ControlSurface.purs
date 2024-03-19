@@ -109,14 +109,66 @@ render _ =
     ]
 
 
+
+
+
+initialize :: forall output m. MonadEffect m
+           => H.HalogenM State Action () output m Unit
+initialize = do
+  resizedEmitter <- newResizedEmitter
+  _ <- H.subscribe resizedEmitter
+  pure unit
+
+
+
+
 handleAction :: forall output m. MonadEffect m
              => Action -> H.HalogenM State Action () output m Unit
 handleAction = case _ of
   Initialize -> initialize
   Resize w h -> do
+    liftEffect $ log $ toString w
     H.modify_ $ \state -> state { height = h, width = w }
     handleAction PaintBackground
   PaintBackground -> paintBackground
+
+
+
+
+-- Creates a new resize observer that will emit a Resize action
+-- upon resizes of this component's main div. See the javascript Resize API.
+newResizedEmitter :: forall output m. MonadEffect m
+                  => H.HalogenM State Action () output m (Subscription.Emitter Action)
+newResizedEmitter = do
+  { emitter, listener } <- liftEffect Subscription.create
+  -- This callback will get called every time the component gets resized.
+  -- It triggers this component's Resize action with the new width and height.
+  let callback = \entry -> Subscription.notify listener $
+                           Resize entry.contentRect.width
+                                  entry.contentRect.height
+  -- Create a new ResizeObserver. The observer's constructor takes as input
+  -- a callback with arguments:
+  -- - A ResizeObserver, which we have no use for;
+  -- - A list of entries. There should be just one in our case, but we iterate
+  --   with `for_` just in case.
+  observer <- liftEffect $ Resize.resizeObserver $ \entries _ ->
+                           for_ entries $ \entry -> callback entry
+  -- Attach the observer to our main element. This is a bit tedious because
+  -- we have to pattern match several times to convert from our label
+  -- "controlSurface" into an `Element`
+  maybeControlSurface <- H.getHTMLElementRef (H.RefLabel "controlSurface")
+  case maybeControlSurface of
+    Nothing -> liftEffect $ log "Error: Failed to initialize resize observer. This should not have happened."
+    Just controlSurface -> do
+      -- We've done all the pattern matching. Now we can actually attach our
+      -- observer to the element. We specify that the size we're interested in
+      -- is the content box of the main element.
+      liftEffect $ Resize.observe (Elt.toElement controlSurface) { box: Resize.ContentBox } observer
+  -- Return the observer so we can subscribe to its updates.
+  pure emitter
+
+
+
 
 
 -- Paint on it a piano-like(ish) background on the background canvas
@@ -129,6 +181,8 @@ paintBackground = do
     Just background -> case CanvasElt.fromHTMLElement background of
       Nothing -> liftEffect $ log "Error: Background is not a canvas. This should not have happened."
       Just canvas -> paintBackgroundOnCanvas canvas
+
+
 
 
 -- Given a canvas element, paint on it a piano-like(ish) background
@@ -162,30 +216,6 @@ paintBackgroundOnCanvas canvas = do
       Canvas.stroke context
       -- TODO paint a grey band around "black" semitones
 
-
-initialize :: forall output m. MonadEffect m
-           => H.HalogenM State Action () output m Unit
-initialize = do
-  resizedEmitter <- newResizedEmitter
-  _ <- H.subscribe resizedEmitter
-  pure unit
-
-
--- Creates a new resize observer that will emit a Resize action
--- upon resizes of this component's main div. See the javascript Resize API.
-newResizedEmitter :: forall output m. MonadEffect m
-                  => H.HalogenM State Action () output m (Subscription.Emitter Action)
-newResizedEmitter = do
-  { emitter, listener } <- liftEffect Subscription.create
-  let callback = \e -> Subscription.notify listener $ Resize e.contentRect.x
-                                                             e.contentRect.y
-  observer <- liftEffect $ Resize.resizeObserver $ const <<< (traverse_ callback)
-  maybeControlSurface <- H.getHTMLElementRef (H.RefLabel "controlSurface")
-  case maybeControlSurface of
-    Nothing -> liftEffect $ log "Error: Failed to initialize resize observer. This should not have happened."
-    Just controlSurface -> do
-      liftEffect $ Resize.observe (Elt.toElement controlSurface) { box: Resize.ContentBox } observer
-  pure emitter
 
 
 -- Those properties are useful for stacking several layer elements inside a
