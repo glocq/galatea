@@ -33,6 +33,14 @@ export const stroke = context => () => {
   context.stroke();
 }
 
+export const arc = context => x => y => radius => startAngle => endAngle => clockwise => () => {
+  context.arc(x, y, radius, startAngle, endAngle, !clockwise)
+}
+
+export const fill = context => () => {
+  context.fill();
+}
+
 export const setWidth = canvasElement => width => () => {
   canvasElement.width = width;
 }

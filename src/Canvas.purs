@@ -8,6 +8,8 @@ module Canvas ( Context2D
               , moveTo
               , lineTo
               , stroke
+              , arc
+              , fill
               , setWidth
               , setHeight
               ) where
@@ -32,6 +34,8 @@ foreign import beginPath :: Context2D -> Effect Unit
 foreign import moveTo    :: Context2D -> Number -> Number -> Effect Unit
 foreign import lineTo    :: Context2D -> Number -> Number -> Effect Unit
 foreign import stroke    :: Context2D -> Effect Unit
+foreign import arc       :: Context2D -> Number -> Number -> Number -> Number -> Number -> Boolean -> Effect Unit
+foreign import fill      :: Context2D -> Effect Unit
 foreign import setWidth  :: Canvas.HTMLCanvasElement -> Number -> Effect Unit
 foreign import setHeight :: Canvas.HTMLCanvasElement -> Number -> Effect Unit
 

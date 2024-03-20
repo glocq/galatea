@@ -1,36 +1,36 @@
 module ControlSurface (component, Slot) where
 
-
 -- General-purpose modules
 import Prelude
-import Data.Maybe       (Maybe (..))
+import Data.Maybe       (Maybe (..), fromJust)
 import Data.Array       ((..))
 import Data.Int         (floor, ceil, toNumber)
 import Data.Traversable (for_)
 import Data.Foldable    (elem)
+import Data.Number      (pi)
+import Partial.Unsafe   (unsafePartial)
 import Effect           (Effect)
 import Effect.Class     (class MonadEffect, liftEffect)
-import Effect.Console   (log)
 -- Halogen and web-related modules
-import Halogen                          as H
-import Halogen.HTML                     as HTML
-import Halogen.HTML.Properties          as H.Prop
-import Halogen.HTML.Events              as H.Ev
-import Halogen.HTML.CSS (style)         as H.CSS
-import CSS                              as CSS
-import Halogen.Subscription             as H.Sub
-import Web.Event.Event (EventType(..))  as Event
-import Web.Event.Internal.Types (Event) as Event.Types
-import Web.PointerEvent.PointerEvent    as Ptr
-import Web.UIEvent.MouseEvent           as Mouse
-import Web.ResizeObserver               as Resize
-import Web.HTML.HTMLElement (toElement) as HTML.Elt
-import Web.HTML.HTMLCanvasElement       as HTML.Canvas
-import Color                            as Color
+import Halogen                       as H
+import Halogen.HTML                  as HTML
+import CSS                           as CSS
+import Halogen.Subscription          as H.Sub
+import Web.PointerEvent.PointerEvent as Ptr
+import Web.ResizeObserver            as Resize
+import Color                         as Color
+import Halogen.HTML.Properties    (ref)
+import Halogen.HTML.Events        (handler)
+import Halogen.HTML.CSS           (style)
+import Web.Event.Event            (EventType (..))
+import Web.Event.Internal.Types   (Event)
+import Web.UIEvent.MouseEvent     (clientX, clientY)
+import Web.DOM.Element            (getBoundingClientRect)
+import Web.HTML.HTMLElement       (toElement)
+import Web.HTML.HTMLCanvasElement (HTMLCanvasElement, fromHTMLElement)
 -- Local modules
 import Types  as Types
 import Canvas as Canvas
-
 
 -- This Halogen component is where the user uses their pointer to produce
 -- MIDI events. It is composed of three stacked canvases in a div, each of which
@@ -43,15 +43,24 @@ import Canvas as Canvas
 --   due to pitch bend limitations. Updated every time a note starts or ends.
 -- * The top canvas displays an indicator about the position and pressure of the
 --   pointer.
--- Work in progress ! Only the background canvas for now; display does not work
--- yet, and pointer events are not dealt with yet.
+--
+-- Notes:
+-- - Work in progress ! Only the background canvas for now; display does not work
+--   yet, and pointer events are not dealt with yet.
+-- - Lots of partial functions here. That's because we do a lot of conversion
+--   between various types of elements (e.g. from an element which we know is a
+--   canvas to a canvas element) and fetching elements by `RefLabel`.
+--   I'm confident that those operations won't fail, and pattern matching on the
+--   unsuccessful cases wouldn't catch the errors --- just show a more informative
+--   error message, at the price of significantly polluting the already busy code.
+
 
 
 {- The component -}
 
 component :: forall query output m. MonadEffect m
           => H.Component query Types.Settings output m
-component = H.mkComponent
+component = unsafePartial $ H.mkComponent
   { initialState: \input -> { height:       0.0 -- will be updated at initialization
                             , width:        0.0 -- based on actual dimensions
                             , settings:     input
@@ -98,10 +107,11 @@ type MusicState = Maybe { basePitch :: Number }
 data Action = Initialize
             | Resize Number Number
             | PaintBackground
+            | PaintPointer
             -- Pointer events
-            | PointerDown Event.Types.Event
-            | PointerUp   Event.Types.Event
-            | PointerMove Event.Types.Event
+            | PointerDown Event
+            | PointerUp   Event
+            | PointerMove Event
             -- Compare pointer state to former music state,
             -- output MIDI if necessary, and update music state:
             | MusicUpdate
@@ -124,43 +134,43 @@ type Slot id = forall query output. H.Slot query output id -- just a helper type
 render :: forall w. State -> HTML.HTML w Action
 render _ =
   HTML.div
-    [ H.Prop.ref $ H.RefLabel "controlSurface"
-    , H.CSS.style $ do
+    [ ref $ H.RefLabel "controlSurface"
+    , style $ do
         CSS.height $ CSS.pct 100.0
         CSS.width  $ CSS.pct 100.0
         CSS.border CSS.solid (CSS.px 1.0) CSS.black
         CSS.position CSS.relative
     ]
     [ HTML.canvas
-        [ H.Prop.ref $ H.RefLabel backgroundCanvasID
-        , H.CSS.style $ layerProperties 0
+        [ ref backgroundCanvasID
+        , style $ layerProperties 0
         ]
     , HTML.canvas
-        [ H.Prop.ref $ H.RefLabel pitchRangeCanvasID
-        , H.CSS.style $ layerProperties 1
+        [ ref pitchRangeCanvasID
+        , style $ layerProperties 1
         ]
     , HTML.canvas
-        [ H.Ev.handler (Event.EventType "pointerdown") PointerDown
-        , H.Ev.handler (Event.EventType "pointerup"  ) PointerUp
-        , H.Ev.handler (Event.EventType "pointermove") PointerMove
-        , H.Prop.ref $ H.RefLabel pointerCanvasID
-        , H.CSS.style $ layerProperties 2
+        [ handler (EventType "pointerdown") PointerDown
+        , handler (EventType "pointerup"  ) PointerUp
+        , handler (EventType "pointermove") PointerMove
+        , ref pointerCanvasID
+        , style $ layerProperties 2
         ]
     ]
 
 
-backgroundCanvasID :: String
-backgroundCanvasID = "backgroundCanvas"
+backgroundCanvasID :: H.RefLabel
+backgroundCanvasID = H.RefLabel "backgroundCanvas"
 
-pitchRangeCanvasID :: String
-pitchRangeCanvasID = "pitchRangeCanvas"
+pitchRangeCanvasID :: H.RefLabel
+pitchRangeCanvasID = H.RefLabel "pitchRangeCanvas"
 
-pointerCanvasID :: String
-pointerCanvasID = "pointerCanvas"
+pointerCanvasID :: H.RefLabel
+pointerCanvasID = H.RefLabel "pointerCanvas"
 
 
 
-initialize :: forall output m. MonadEffect m
+initialize :: forall output m. Partial => MonadEffect m
            => H.HalogenM State Action () output m Unit
 initialize = do
   resizedEmitter <- newResizedEmitter resizedCallback
@@ -170,7 +180,7 @@ initialize = do
 
 
 
-handleAction :: forall output m. MonadEffect m
+handleAction :: forall output m. Partial => MonadEffect m
              => Action -> H.HalogenM State Action () output m Unit
 handleAction = case _ of
 
@@ -178,51 +188,68 @@ handleAction = case _ of
 
   Resize w h -> do
     H.modify_ $ \state -> state { height = h, width = w }
-    maybeBackground <- getCanvas $ H.RefLabel backgroundCanvasID
-    for_ maybeBackground $ \background -> liftEffect $ do
+    maybeBackground   <- getCanvas backgroundCanvasID
+    maybeMiddleground <- getCanvas pitchRangeCanvasID
+    maybeForeground   <- getCanvas pointerCanvasID
+    for_ maybeBackground   $ \background   -> liftEffect $ do
       Canvas.setWidth  background w
       Canvas.setHeight background h
+    for_ maybeMiddleground $ \middleground -> liftEffect $ do
+      Canvas.setWidth  middleground w
+      Canvas.setHeight middleground h
+    for_ maybeForeground   $ \foreground   -> liftEffect $ do
+      Canvas.setWidth  foreground w
+      Canvas.setHeight foreground h
     handleAction PaintBackground
 
-  PaintBackground -> paintBackground
+  PaintBackground -> paintOnCanvas paintBackground backgroundCanvasID
 
-  PointerDown event -> case Ptr.fromEvent event of
-    Nothing -> liftEffect $ log "Not a pointer event! This should not have happened."
-    Just ptrEv -> do
-      H.modify_ \state ->
-        state { pointerState { contact  = true
-                             , x        = toNumber $ Mouse.clientX $ Ptr.toMouseEvent ptrEv
-                             , y        = toNumber $ Mouse.clientY $ Ptr.toMouseEvent ptrEv
-                             , pressure = Ptr.pressure ptrEv
-                             }
-              }
-      handleAction MusicUpdate
+  PaintPointer -> paintOnCanvas paintPointer pointerCanvasID
 
-  PointerUp event -> case Ptr.fromEvent event of
-    Nothing -> liftEffect $ log "Not a pointer event! This should not have happened."
-    Just _ -> do
-      H.modify_ \state -> state { pointerState { contact = false } }
-      handleAction MusicUpdate
+  PointerDown event -> do
+    let ptrEv = fromJust $ Ptr.fromEvent event
+    canvasRect <- (liftEffect <<< getBoundingClientRect <<< toElement) =<<
+                  (fromJust <$> H.getHTMLElementRef pointerCanvasID)
+    let x = (toNumber $ clientX $ Ptr.toMouseEvent ptrEv) - canvasRect.left
+    let y = (toNumber $ clientY $ Ptr.toMouseEvent ptrEv) - canvasRect.top
+    H.modify_ \state -> do
+      state { pointerState { contact  = true
+                           , x = x
+                           , y = y
+                           , pressure = Ptr.pressure ptrEv
+                           }
+            }
+    handleAction PaintPointer
+    handleAction MusicUpdate
 
-  PointerMove event -> case Ptr.fromEvent event of
-    Nothing -> liftEffect $ log "Not a pointer event! This should not have happened."
-    Just ptrEv -> do
-      H.modify_ \state ->
-        state { pointerState { x        = toNumber $ Mouse.clientX $ Ptr.toMouseEvent ptrEv
-                             , y        = toNumber $ Mouse.clientY $ Ptr.toMouseEvent ptrEv
-                             , pressure = Ptr.pressure ptrEv
-                             }
-              }
-      handleAction MusicUpdate
+  PointerUp _ -> do
+    H.modify_ \state -> state { pointerState { contact = false } }
+    handleAction PaintPointer
+    handleAction MusicUpdate
 
-  MusicUpdate -> liftEffect $ log "TODO implement music handling"
+  PointerMove event -> do
+    let ptrEv = fromJust $ Ptr.fromEvent event
+    canvasRect <- (liftEffect <<< getBoundingClientRect <<< toElement) =<<
+                  (fromJust <$> H.getHTMLElementRef pointerCanvasID)
+    let x = (toNumber $ clientX $ Ptr.toMouseEvent ptrEv) - canvasRect.left
+    let y = (toNumber $ clientY $ Ptr.toMouseEvent ptrEv) - canvasRect.top
+    H.modify_ \state ->
+      state { pointerState { x = x
+                           , y = y
+                           , pressure = Ptr.pressure ptrEv
+                           }
+            }
+    handleAction PaintPointer
+    handleAction MusicUpdate
+
+  MusicUpdate -> pure unit -- TODO implement music handling
 
 
 
 
 -- Creates a new resize observer that will emit a Resize action
 -- upon resizes of this component's main div. See the javascript Resize API.
-newResizedEmitter :: forall output m. MonadEffect m
+newResizedEmitter :: forall output m. Partial => MonadEffect m
                   => (H.Sub.Listener Action -> Resize.ResizeObserverEntry -> Effect Unit)
                   -> H.HalogenM State Action () output m (H.Sub.Emitter Action)
 newResizedEmitter callback = do
@@ -234,17 +261,10 @@ newResizedEmitter callback = do
   --   with `for_` just in case.
   observer <- liftEffect $ Resize.resizeObserver $ \entries _ ->
                            for_ entries $ \entry -> callback listener entry
-  -- Attach the observer to our main element. This is a bit tedious because
-  -- we have to pattern match several times to convert from our label
-  -- "controlSurface" into an `Element`
-  maybeControlSurface <- H.getHTMLElementRef (H.RefLabel "controlSurface")
-  case maybeControlSurface of
-    Nothing -> liftEffect $ log "Error: Failed to initialize resize observer. This should not have happened."
-    Just controlSurface -> do
-      -- We've done all the pattern matching. Now we can actually attach our
-      -- observer to the element. We specify that the size we're interested in
-      -- is the content box of the main element.
-      liftEffect $ Resize.observe (HTML.Elt.toElement controlSurface) { box: Resize.ContentBox } observer
+  -- Attach the observer to our main element. We specify that the size we're
+  -- interested in is the content box of the main element.
+  controlSurface <- fromJust <$> H.getHTMLElementRef (H.RefLabel "controlSurface")
+  liftEffect $ Resize.observe (toElement controlSurface) { box: Resize.ContentBox } observer
   -- Return the observer so we can subscribe to its updates.
   pure emitter
 
@@ -263,34 +283,54 @@ resizedCallback listener entry = H.Sub.notify listener $
 
 
 
-getCanvas :: forall output m.
-             H.RefLabel -> H.HalogenM State Action () output m (Maybe HTML.Canvas.HTMLCanvasElement)
-getCanvas label = do
-  maybeElement <- H.getHTMLElementRef label
-  case maybeElement of
-    Nothing      -> pure Nothing
-    Just element -> pure $ HTML.Canvas.fromHTMLElement element
+getCanvas :: forall output m. Partial
+          => H.RefLabel -> H.HalogenM State Action () output m (Maybe HTMLCanvasElement)
+getCanvas label = fromHTMLElement <$> fromJust <$> H.getHTMLElementRef label
 
 
 
+paintOnCanvas :: forall output m. MonadEffect m => Partial
+              => (HTMLCanvasElement -> H.HalogenM State Action () output m Unit)
+              -> H.RefLabel -> H.HalogenM State Action () output m Unit
+paintOnCanvas paintAction label = paintAction =<< (fromJust <$> getCanvas label)
 
--- Paint on it a piano-like(ish) background on the background canvas
-paintBackground :: forall output m. MonadEffect m
-                => H.HalogenM State Action () output m Unit
-paintBackground = do
-  maybeBackground <- getCanvas $ H.RefLabel backgroundCanvasID
-  case maybeBackground of
-    Nothing -> liftEffect $ log "Error: Failed to get background canvas. This should not have happened."
-    Just background -> paintBackgroundOnCanvas background
 
 
 
 
 -- Given a canvas element, paint on it a piano-like(ish) background
-paintBackgroundOnCanvas :: forall output m. MonadEffect m
-                        => HTML.Canvas.HTMLCanvasElement
-                        -> H.HalogenM State Action () output m Unit
-paintBackgroundOnCanvas canvas = do
+paintPointer :: forall output m. MonadEffect m
+             => HTMLCanvasElement
+             -> H.HalogenM State Action () output m Unit
+paintPointer canvas = do
+  state <- H.get
+  let context = Canvas.context2D canvas
+  let width  = state.width
+  let height = state.height
+  let wholeCanvas = { x: 0.0
+                    , y: 0.0
+                    , width:  width
+                    , height: height
+                    }
+  liftEffect $ Canvas.clearRect context wholeCanvas
+  let contact = state.pointerState.contact
+  when contact $ do
+    let x = state.pointerState.x
+    let y = state.pointerState.y
+    let pressure = state.pointerState.pressure
+    liftEffect $ do
+      Canvas.clearRect    context wholeCanvas
+      Canvas.beginPath    context
+      Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 0.5
+      Canvas.arc          context x y (10.0 * pressure) 0.0 (2.0 * pi) true
+      Canvas.fill         context
+
+
+-- Given a canvas element, paint on it a piano-like(ish) background
+paintBackground :: forall output m. MonadEffect m
+                => HTMLCanvasElement
+                -> H.HalogenM State Action () output m Unit
+paintBackground canvas = do
   state <- H.get
   let lowPitch  = state.settings.pitchRange.low
   let highPitch = state.settings.pitchRange.high
