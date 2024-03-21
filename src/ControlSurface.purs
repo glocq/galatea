@@ -3,8 +3,9 @@ module ControlSurface (component, Slot) where
 -- General-purpose modules
 import Prelude
 import Data.Maybe       (Maybe (..), fromJust)
+import Data.Tuple       (Tuple (..))
 import Data.Array       ((..))
-import Data.Int         (floor, ceil, toNumber)
+import Data.Int         (floor, ceil, toNumber, round)
 import Data.Traversable (for_)
 import Data.Foldable    (elem)
 import Data.Number      (pi, pow)
@@ -58,8 +59,8 @@ import Canvas as Canvas
 
 {- The component -}
 
-component :: forall query output m. MonadEffect m
-          => H.Component query Types.Settings output m
+component :: forall query m. MonadEffect m
+          => H.Component query Types.Settings Types.MusicMessage m
 component = unsafePartial $ H.mkComponent
   { initialState: \input -> { height:       0.0 -- will be updated at initialization
                             , width:        0.0 -- based on actual dimensions
@@ -99,9 +100,9 @@ defaultPointerState = { contact:  false
                       , pressure: 0.0
                       }
 
--- Nothing is no note is playing, Just baseNote if a NoteOn was sent
+-- Nothing if no note is playing, Just baseNote if a NoteOn was sent
 -- with MIDI pitch baseNote
-type MusicState = Maybe { basePitch :: Number }
+type MusicState = Maybe { basePitch :: Int }
 
 
 data Action = Initialize
@@ -116,7 +117,7 @@ data Action = Initialize
             -- output MIDI if necessary, and update music state:
             | MusicUpdate
 
-type Slot id = forall query output. H.Slot query output id -- just a helper type for parents
+type Slot id = forall query. H.Slot query Types.MusicMessage id -- just a helper type for parents
 
 
 
@@ -181,7 +182,7 @@ initialize = do
 
 
 handleAction :: forall output m. Partial => MonadEffect m
-             => Action -> H.HalogenM State Action () output m Unit
+             => Action -> H.HalogenM State Action () Types.MusicMessage m Unit
 handleAction = case _ of
 
   Initialize -> initialize
@@ -242,7 +243,50 @@ handleAction = case _ of
     handleAction MusicUpdate
     handleAction PaintPointer
 
-  MusicUpdate -> pure unit -- TODO implement music handling
+
+  MusicUpdate -> do
+    (state :: State) <- H.get
+    -- If stylus is in contact, Just pitch, where pitch is the semitone value
+    -- corresponding to the contact point. Otherwise, Nothing.
+    let newPitch = if state.pointerState.contact
+      then
+        let lowPitch  = state.settings.pitchRange.low  in
+        let highPitch = state.settings.pitchRange.high in
+        let x = state.pointerState.x                   in
+        Just $ if lowPitch /= highPitch then (x - lowPitch) / (highPitch - lowPitch)
+                                        else lowPitch
+      else Nothing
+
+
+    -- Four cases here:
+    case Tuple state.musicState newPitch of
+
+      -- 1. The pointer is not in contact and no note was being played:
+      --    nothing to do here.
+      Tuple Nothing Nothing -> pure unit
+
+      -- 2. The pointer is in contact, but no note was being played:
+      Tuple Nothing (Just pitch) -> do
+        let closestNote = round pitch
+        -- Update internal state: a note is now being played
+        H.modify_ $ \_ -> state {musicState = Just {basePitch: closestNote}}
+        -- Send music messages: a note is now to be played, but before that
+        -- we set pitch bend and intensity control messages to their adequate value:
+        H.raise $ Types.Intensity $ state.pointerState.pressure
+        H.raise $ Types.PitchBend $ pitch - toNumber closestNote
+        H.raise $ Types.NoteOn closestNote state.pointerState.pressure
+
+      -- 3. A note was being played, but the pointer is no longer in contact:
+      Tuple (Just _) Nothing -> do
+        -- Update internal state: no note is being played anymore
+        H.modify_ $ \_ -> state {musicState = Nothing}
+        -- Send music message: stop playing note
+        H.raise Types.NoteOff
+
+      -- 4. A note was being played, and the pointer is still in contact:
+      Tuple (Just ms) (Just currentPitch) -> do
+        H.raise $ Types.Intensity $ state.pointerState.pressure
+        H.raise $ Types.PitchBend $ currentPitch - toNumber ms.basePitch
 
 
 

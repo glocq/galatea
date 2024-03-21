@@ -1,5 +1,6 @@
 module Types ( PitchRange, defaultPitchRange
              , Settings  , defaultSettings
+             , MusicMessage (..)
              ) where
 
 
@@ -17,6 +18,12 @@ type Settings = { blackKeyRatio :: Number -- The size of a black key compared to
                 }
 
 defaultSettings :: Settings
-defaultSettings = { blackKeyRatio: 0.8
-                  , pitchRange:    defaultPitchRange
+defaultSettings = { blackKeyRatio:      0.8
+                  , pitchRange:         defaultPitchRange
                   }
+
+-- Like MIDI messages, but higher level
+data MusicMessage = NoteOn Int Number -- MIDI semitone value; normalized velocity
+                  | NoteOff
+                  | PitchBend Number -- in semitones
+                  | Intensity Number -- normalized between 0.1 and 1.0
