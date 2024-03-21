@@ -7,7 +7,7 @@ import Data.Array       ((..))
 import Data.Int         (floor, ceil, toNumber)
 import Data.Traversable (for_)
 import Data.Foldable    (elem)
-import Data.Number      (pi)
+import Data.Number      (pi, pow)
 import Partial.Unsafe   (unsafePartial)
 import Effect           (Effect)
 import Effect.Class     (class MonadEffect, liftEffect)
@@ -219,13 +219,13 @@ handleAction = case _ of
                            , pressure = Ptr.pressure ptrEv
                            }
             }
-    handleAction PaintPointer
     handleAction MusicUpdate
+    handleAction PaintPointer
 
   PointerUp _ -> do
     H.modify_ \state -> state { pointerState { contact = false } }
-    handleAction PaintPointer
     handleAction MusicUpdate
+    handleAction PaintPointer
 
   PointerMove event -> do
     let ptrEv = fromJust $ Ptr.fromEvent event
@@ -239,8 +239,8 @@ handleAction = case _ of
                            , pressure = Ptr.pressure ptrEv
                            }
             }
-    handleAction PaintPointer
     handleAction MusicUpdate
+    handleAction PaintPointer
 
   MusicUpdate -> pure unit -- TODO implement music handling
 
@@ -319,11 +319,25 @@ paintPointer canvas = do
     let y = state.pointerState.y
     let pressure = state.pointerState.pressure
     liftEffect $ do
-      Canvas.clearRect    context wholeCanvas
-      Canvas.beginPath    context
-      Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 0.5
-      Canvas.arc          context x y (10.0 * pressure) 0.0 (2.0 * pi) true
-      Canvas.fill         context
+      Canvas.clearRect context wholeCanvas
+      -- Draw a couple of concentric circles whose opacity is dependent on pressure.
+      -- The formulae for radius and opacity have been determined through
+      -- trial and error, which is why they look arbitrary:
+      -- (TODO improve/rationalize those? I think they are not beautiful but
+      -- they feel good when I play the tablet)
+      for_ (0..3) $ \i -> do
+        let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
+        let iNum = toNumber i
+        let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
+        let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 ((4.0 * (pressure `pow` 2.0)) - iNum) `pow` 2.0
+        Canvas.beginPath    context
+        Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
+        Canvas.arc          context x y radius 0.0 (2.0 * pi) true
+        Canvas.fill         context
+
+
+
+
 
 
 -- Given a canvas element, paint on it a piano-like(ish) background
