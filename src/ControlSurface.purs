@@ -369,11 +369,11 @@ paintPointer canvas = do
       -- trial and error, which is why they look arbitrary:
       -- (TODO improve/rationalize those? I think they are not beautiful but
       -- they feel good when I play the tablet)
-      for_ (0..3) $ \i -> do
+      for_ (0..5) $ \i -> do
         let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
         let iNum = toNumber i
         let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
-        let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 ((4.0 * (pressure `pow` 2.0)) - iNum) `pow` 2.0
+        let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 (6.0 * pressure - iNum) `pow` 2.0
         Canvas.beginPath    context
         Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
         Canvas.arc          context x y radius 0.0 (2.0 * pi) true
