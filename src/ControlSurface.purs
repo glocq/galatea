@@ -72,6 +72,7 @@ component = unsafePartial $ H.mkComponent
   , eval: H.mkEval $ H.defaultEval 
             { initialize   = Just Initialize
             , handleAction = handleAction
+            , receive      = Just <<< Receive
             }
   }
 
@@ -107,18 +108,22 @@ defaultPointerState = { contact:  false
 type MusicState = Maybe { basePitch :: Int }
 
 
-data Action = Initialize
-            | Resize Number Number
-            | PaintBackground
-            | PaintPointer
-            | PaintLimits
-            -- Pointer events
-            | PointerDown Event
-            | PointerUp   Event
-            | PointerMove Event
-            -- Compare pointer state to former music state,
-            -- output MIDI if necessary, and update music state:
-            | MusicUpdate
+data Action
+  -- General component actions
+  = Initialize
+  | Receive Types.Settings
+  | Resize Number Number
+  -- Rendering
+  | PaintBackground
+  | PaintPointer
+  | PaintLimits
+  -- Pointer events
+  | PointerDown Event
+  | PointerUp   Event
+  | PointerMove Event
+  -- Compare pointer state to former music state,
+  -- output MIDI if necessary, and update music state:
+  | MusicUpdate
 
 type Slot id = forall query. H.Slot query Types.MusicMessage id -- just a helper type for parents
 
@@ -189,6 +194,12 @@ handleAction :: forall m. Partial => MonadEffect m
 handleAction = case _ of
 
   Initialize -> initialize
+
+  Receive settings -> do
+    H.modify_ $ \state -> state {settings = settings}
+    handleAction PaintBackground
+    -- we assume that the pointer is not down while settings change,
+    -- so no need to paint the rest
 
   Resize w h -> do
     H.modify_ $ \state -> state { height = h, width = w }
