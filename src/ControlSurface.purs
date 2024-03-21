@@ -181,7 +181,7 @@ initialize = do
 
 
 
-handleAction :: forall output m. Partial => MonadEffect m
+handleAction :: forall m. Partial => MonadEffect m
              => Action -> H.HalogenM State Action () Types.MusicMessage m Unit
 handleAction = case _ of
 
