@@ -13,13 +13,15 @@ defaultPitchRange = { low:  57.0
                     , high: 81.0
                     }
 
-type Settings = { blackKeyRatio :: Number -- The size of a black key compared to that of a semitone
-                , pitchRange    :: PitchRange
+type Settings = { blackKeyRatio      :: Number -- The size of a black key compared to that of a semitone
+                , pitchRange         :: PitchRange
+                , halfPitchBendRange :: Number
                 }
 
 defaultSettings :: Settings
 defaultSettings = { blackKeyRatio:      0.8
                   , pitchRange:         defaultPitchRange
+                  , halfPitchBendRange: 3.0
                   }
 
 -- Like MIDI messages, but higher level

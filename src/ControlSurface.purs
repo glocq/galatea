@@ -78,6 +78,8 @@ component = unsafePartial $ H.mkComponent
 
 {- Types -}
 
+type ControlSurfaceM = H.HalogenM State Action () Types.MusicMessage
+
 type Input = {}
 
 type State = { height       :: Number
@@ -109,6 +111,7 @@ data Action = Initialize
             | Resize Number Number
             | PaintBackground
             | PaintPointer
+            | PaintLimits
             -- Pointer events
             | PointerDown Event
             | PointerUp   Event
@@ -171,8 +174,8 @@ pointerCanvasID = H.RefLabel "pointerCanvas"
 
 
 
-initialize :: forall output m. Partial => MonadEffect m
-           => H.HalogenM State Action () output m Unit
+initialize :: forall m. Partial => MonadEffect m
+           => ControlSurfaceM m Unit
 initialize = do
   resizedEmitter <- newResizedEmitter resizedCallback
   _ <- H.subscribe resizedEmitter
@@ -182,7 +185,7 @@ initialize = do
 
 
 handleAction :: forall m. Partial => MonadEffect m
-             => Action -> H.HalogenM State Action () Types.MusicMessage m Unit
+             => Action -> ControlSurfaceM m Unit
 handleAction = case _ of
 
   Initialize -> initialize
@@ -204,8 +207,8 @@ handleAction = case _ of
     handleAction PaintBackground
 
   PaintBackground -> paintOnCanvas paintBackground backgroundCanvasID
-
-  PaintPointer -> paintOnCanvas paintPointer pointerCanvasID
+  PaintLimits     -> paintOnCanvas paintLimits     pitchRangeCanvasID
+  PaintPointer    -> paintOnCanvas paintPointer    pointerCanvasID
 
   PointerDown event -> do
     let ptrEv = fromJust $ Ptr.fromEvent event
@@ -222,11 +225,13 @@ handleAction = case _ of
             }
     handleAction MusicUpdate
     handleAction PaintPointer
+    handleAction PaintLimits
 
   PointerUp _ -> do
     H.modify_ \state -> state { pointerState { contact = false } }
     handleAction MusicUpdate
     handleAction PaintPointer
+    handleAction PaintLimits
 
   PointerMove event -> do
     let ptrEv = fromJust $ Ptr.fromEvent event
@@ -252,8 +257,9 @@ handleAction = case _ of
       then
         let lowPitch  = state.settings.pitchRange.low  in
         let highPitch = state.settings.pitchRange.high in
+        let width = state.width                        in
         let x = state.pointerState.x                   in
-        Just $ if lowPitch /= highPitch then (x - lowPitch) / (highPitch - lowPitch)
+        Just $ if lowPitch /= highPitch then (x / width) * (highPitch - lowPitch) + lowPitch
                                         else lowPitch
       else Nothing
 
@@ -288,14 +294,17 @@ handleAction = case _ of
         H.raise $ Types.Intensity $ state.pointerState.pressure
         H.raise $ Types.PitchBend $ currentPitch - toNumber ms.basePitch
 
+    -- Update pitch limits canvas:
+    handleAction PaintLimits
+
 
 
 
 -- Creates a new resize observer that will emit a Resize action
 -- upon resizes of this component's main div. See the javascript Resize API.
-newResizedEmitter :: forall output m. Partial => MonadEffect m
+newResizedEmitter :: forall m. Partial => MonadEffect m
                   => (H.Sub.Listener Action -> Resize.ResizeObserverEntry -> Effect Unit)
-                  -> H.HalogenM State Action () output m (H.Sub.Emitter Action)
+                  -> ControlSurfaceM m (H.Sub.Emitter Action)
 newResizedEmitter callback = do
   { emitter, listener } <- liftEffect H.Sub.create
   -- Create a new ResizeObserver. The observer's constructor takes as input
@@ -327,15 +336,15 @@ resizedCallback listener entry = H.Sub.notify listener $
 
 
 
-getCanvas :: forall output m. Partial
-          => H.RefLabel -> H.HalogenM State Action () output m (Maybe HTMLCanvasElement)
+getCanvas :: forall m. Partial
+          => H.RefLabel -> ControlSurfaceM m (Maybe HTMLCanvasElement)
 getCanvas label = fromHTMLElement <$> fromJust <$> H.getHTMLElementRef label
 
 
 
-paintOnCanvas :: forall output m. MonadEffect m => Partial
-              => (HTMLCanvasElement -> H.HalogenM State Action () output m Unit)
-              -> H.RefLabel -> H.HalogenM State Action () output m Unit
+paintOnCanvas :: forall m. MonadEffect m => Partial
+              => (HTMLCanvasElement -> ControlSurfaceM m Unit)
+              -> H.RefLabel -> ControlSurfaceM m Unit
 paintOnCanvas paintAction label = paintAction =<< (fromJust <$> getCanvas label)
 
 
@@ -343,9 +352,8 @@ paintOnCanvas paintAction label = paintAction =<< (fromJust <$> getCanvas label)
 
 
 -- Given a canvas element, paint on it a piano-like(ish) background
-paintPointer :: forall output m. MonadEffect m
-             => HTMLCanvasElement
-             -> H.HalogenM State Action () output m Unit
+paintPointer :: forall m. MonadEffect m
+             => HTMLCanvasElement -> ControlSurfaceM m Unit
 paintPointer canvas = do
   state <- H.get
   let context = Canvas.context2D canvas
@@ -382,12 +390,53 @@ paintPointer canvas = do
 
 
 
+paintLimits :: forall m. MonadEffect m
+            => HTMLCanvasElement -> ControlSurfaceM m Unit
+paintLimits canvas = do
+  -- Get state variables
+  state <- H.get
+  let context = Canvas.context2D canvas
+  let width  = state.width
+  let height = state.height
+  -- Clear canvas
+  let wholeCanvas = { x: 0.0
+                    , y: 0.0
+                    , width:  width
+                    , height: height
+                    }
+  liftEffect $ Canvas.clearRect context wholeCanvas
+
+  case state.musicState of
+    Nothing -> pure unit
+    Just ms -> do
+      let leftPitch  = state.settings.pitchRange.low
+      let rightPitch = state.settings.pitchRange.high
+      let basePitch = toNumber ms.basePitch
+      let lowLimitPitch  = basePitch - state.settings.halfPitchBendRange
+      let highLimitPitch = basePitch + state.settings.halfPitchBendRange
+      let lowLimit  = width * (lowLimitPitch  - leftPitch) / (rightPitch - leftPitch)
+      let highLimit = width * (highLimitPitch - leftPitch) / (rightPitch - leftPitch)
+      let leftArea = { x: 0.0
+                     , y: 0.0
+                     , width:  lowLimit
+                     , height: height
+                     }
+      let rightArea = { x: highLimit
+                      , y: 0.0
+                      , width:  width
+                      , height: height
+                      }
+      liftEffect $ Canvas.setFillStyle context $ Color.rgba' 0.8 0.0 0.0 0.5
+      liftEffect $ Canvas.fillRect context leftArea
+      liftEffect $ Canvas.fillRect context rightArea
+
+
+
 
 
 -- Given a canvas element, paint on it a piano-like(ish) background
-paintBackground :: forall output m. MonadEffect m
-                => HTMLCanvasElement
-                -> H.HalogenM State Action () output m Unit
+paintBackground :: forall m. MonadEffect m
+                => HTMLCanvasElement -> ControlSurfaceM m Unit
 paintBackground canvas = do
   state <- H.get
   let lowPitch  = state.settings.pitchRange.low
