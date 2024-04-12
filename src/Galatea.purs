@@ -30,9 +30,9 @@ galatea = do
   pure $ Deku.do
 
     -- Application graph: poll(s)
-    setSettings   /\ settings   <- DH.useHot Types.defaultSettings
-    setMidiAccess /\ midiAccess <- DH.useHot Nothing
-    setMidiOutput /\ midiOutput <- DH.useHot Nothing
+    setSettings   /\ settings   <- DH.useState Types.defaultSettings
+    setMidiAccess /\ midiAccess <- DH.useState Nothing
+    setMidiOutput /\ midiOutput <- DH.useState Nothing
 
     -- Putting together all application graph edges, aka communication channels:
     let wires = { surfaceOut: surfaceOut

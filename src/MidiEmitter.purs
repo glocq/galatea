@@ -59,8 +59,9 @@ initialize surfaceEvent settings output = do
 maybeSendMidi :: Maybe MIDI.Output -> MIDI.Message -> Effect Unit
 maybeSendMidi maybeOutput msg = case maybeOutput of
   Nothing -> log $ "No MIDI output found to send message " <> show msg
-  Just output -> MIDI.sendMessage output msg
-
+  Just output -> do
+    log $ show msg
+    MIDI.sendMessage output msg
 
 
 surfaceMsgCallback :: Types.Settings

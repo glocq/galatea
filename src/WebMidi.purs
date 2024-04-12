@@ -55,7 +55,7 @@ foreign import sendMessage :: Output -> Message -> Effect Unit
 -- | NoteOn message to specified channel.
 -- | The velocity value is between 0.0 and 1.0
 noteOn :: Int -> Int -> Number -> Message
-noteOn note channel velocity =
+noteOn channel note velocity =
   Message [ 144 + channel
           , note
           , toIntRange 127 velocity
@@ -63,7 +63,7 @@ noteOn note channel velocity =
 
 -- | NoteOff message to specified channel.
 noteOff :: Int -> Int -> Maybe Number -> Message
-noteOff note channel velocity =
+noteOff channel note velocity =
   Message [ 144 + channel
           , note
           , toIntRange 127 (fromMaybe 0.0 velocity)
@@ -74,8 +74,8 @@ noteOff note channel velocity =
 pitchBend :: Int -> Number -> Message
 pitchBend channel value = do
   let normalizedValue = toIntRange 16_383 $ (value + 1.0) / 2.0
-  let lsb = normalizedValue `div` 127 -- least significant bit
-  let msb = normalizedValue `mod` 127 -- most significant bit
+  let lsb = normalizedValue `div` 128 -- least significant bit
+  let msb = normalizedValue `mod` 128 -- most significant bit
   Message [224 + channel, lsb, msb]
 
 -- | A convenience function where you specify the pitch bend value in semitones.

@@ -48,7 +48,7 @@ modeButton mode wires =
     -- Style button based on whether it corresponds to the selected mode:
     [ DA.style $ wires.settings <#> \s -> DC.render $
         if s.mode == mode then activeButtonStyle
-                         else inactiveButtonStyle
+                          else inactiveButtonStyle
     -- Set mode upon clicking button:
     , DL.click $ wires.settings <#> \s -> const $
         wires.setSettings $ s {mode = mode}
@@ -133,7 +133,7 @@ midiOutputDropdown wires =
     [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess
     , DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess
     ]
-    [ dropdown wires ]
+    [ midiOutputEntries wires ]
 
 
 midiOutputSelectionCallback :: Types.Wires
@@ -159,8 +159,8 @@ setAccess wires emAccess = wires.setMidiAccess $ join $ hush emAccess
 
 
 
-dropdown :: Types.Wires -> D.Nut
-dropdown wires = wires.midiAccess <#~> case _ of
+midiOutputEntries :: Types.Wires -> D.Nut
+midiOutputEntries wires = wires.midiAccess <#~> case _ of
   Nothing -> mempty
   Just access -> D.fixed $ MIDI.outputIDs access <#> \id ->
     case MIDI.getOutput access id of

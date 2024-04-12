@@ -39,8 +39,8 @@ component :: D.NutWith Types.Wires
 component wires = Deku.do
 
   -- Define the internal state, aka the dimensions:
-  setWidth  /\ width  <- DH.useHot 0.0
-  setHeight /\ height <- DH.useHot 0.0
+  setWidth  /\ width  <- DH.useState 0.0
+  setHeight /\ height <- DH.useState 0.0
 
   -- The actual component: a div with three stacked canvases inside
   DD.div
