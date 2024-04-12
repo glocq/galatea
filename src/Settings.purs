@@ -2,14 +2,18 @@ module Settings where
 
 -- General-purpose modules
 import Prelude
-import Effect.Aff        as Aff
+import Data.Int          (round)
+import Data.Tuple.Nested ((/\))
 import Data.Maybe        (Maybe(..))
 import Data.Either       (Either, hush)
+import Effect.Aff        (runAff_)
 import Effect            (Effect)
--- Web utilities
-import Color   as Color
-import CSS     as CSS
-import WebMidi as MIDI
+-- Web
+import Web.Event.Event            as Event
+import Web.HTML.HTMLSelectElement as Select
+import Color                      as Color
+import CSS                        as CSS
+import WebMidi                    as MIDI
 -- Deku-related modules
 import Deku.Core           as D
 import Deku.Hooks          ((<#~>))
@@ -26,19 +30,15 @@ import Types as Types
 -- | A component which displays an interface
 -- | for choosing the application settings.
 component :: Types.Wires -> D.Nut
-component wires = Deku.do
-
-  DD.div_ $
-
-    -- Select playing mode
-    [ modeButton Types.Instrument
-    , modeButton Types.Manual
-    -- Set pitch range
-    , leftPitchInput
-    , rightPitchInput
-    -- Select MIDI output
-    , midiOutputDropdown
-    ] <@> wires
+component wires = DD.div_ $
+  [ modeButton Types.Instrument
+  , modeButton Types.Manual
+  , leftPitchInput
+  , rightPitchInput
+  , midiChannel
+  , pitchBendHalfRange
+  , midiOutputDropdown
+  ] <@> wires
 
 
 
@@ -73,6 +73,8 @@ leftPitchInput :: Types.Wires -> D.Nut
 leftPitchInput wires =
   DD.input
     [ DA.xtypeNumber
+    , DA.step_ "1"
+    , DA.value_ $ show $ round Types.defaultSettings.leftPitch
     -- Upon changing value:
     , DL.numberOn DL.input $ wires.settings <#> \s value -> do
         -- 1. Update value
@@ -86,6 +88,8 @@ rightPitchInput :: Types.Wires -> D.Nut
 rightPitchInput wires =
   DD.input
     [ DA.xtypeNumber
+    , DA.step_ "1"
+    , DA.value_ $ show $ round Types.defaultSettings.rightPitch
     -- Upon changing value:
     , DL.numberOn DL.input $ wires.settings <#> \s value -> do
         -- 1. Update value
@@ -95,11 +99,56 @@ rightPitchInput wires =
     ] []
 
 
+
+midiChannel :: D.NutWith Types.Wires
+midiChannel wires =
+  DD.input
+    [ DA.xtypeNumber
+    , DA.min_ "0"
+    , DA.max_ "15"
+    , DA.step_ "1"
+    , DA.value_ $ show $ Types.defaultSettings.midiChannel
+    , DL.numberOn DL.input $ wires.settings <#> \s value ->
+        wires.setSettings $ s {midiChannel = round value}
+    ] []
+
+
+
+pitchBendHalfRange :: D.NutWith Types.Wires
+pitchBendHalfRange wires =
+  DD.input
+    [ DA.xtypeNumber
+    , DA.min_ "0"
+    , DA.step_ "1"
+    , DA.value_ $ show $ round Types.defaultSettings.pitchBendHalfRange
+    , DL.numberOn DL.input $ wires.settings <#> \s value ->
+        wires.setSettings $ s {pitchBendHalfRange = value}
+    ] []
+
+
+
 midiOutputDropdown :: Types.Wires -> D.Nut
 midiOutputDropdown wires =
   DD.select
-    [ Self.self_ \_ -> Aff.runAff_ (setAccess wires) MIDI.requestAccess ]
+    [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess
+    , DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess
+    ]
     [ dropdown wires ]
+
+
+midiOutputSelectionCallback :: Types.Wires
+                            -> Maybe MIDI.Access
+                            -> Event.Event
+                            -> Effect Unit
+midiOutputSelectionCallback wires maybeAccess event = do
+  let maybeElement = Event.target event >>= Select.fromEventTarget
+  case (maybeElement /\ maybeAccess) of
+    (Just elt /\ Just access) -> do
+      outputID <- Select.value elt
+      wires.setMidiOutput $ MIDI.getOutput access outputID
+    _ -> pure unit
+
+
 
 
 setAccess :: forall error

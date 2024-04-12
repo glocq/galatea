@@ -1,7 +1,7 @@
 module WebMidi
   ( Access, Output, Message
   , requestAccess, getOutput, outputIDs, outputName, sendMessage
-  , noteOn, noteOff, pitchBend, aftertouch
+  , noteOn, noteOff, pitchBend, pitchBend', aftertouch
   ) where
 
 import Prelude
@@ -19,6 +19,8 @@ foreign import data Output :: Type
 
 newtype Message = Message (Array Int)
 
+instance showMessage :: Show Message where
+  show (Message array) = "Message " <> show array
 
 -- Functions
 
@@ -75,6 +77,13 @@ pitchBend channel value = do
   let lsb = normalizedValue `div` 127 -- least significant bit
   let msb = normalizedValue `mod` 127 -- most significant bit
   Message [224 + channel, lsb, msb]
+
+-- | A convenience function where you specify the pitch bend value in semitones.
+pitchBend' :: Number -> Int -> Number -> Message
+pitchBend' halfRange channel semitones = pitchBend channel rescaledValue
+  where rescaledValue = case halfRange of
+          0.0 -> 0.0
+          _   -> semitones / halfRange
 
 -- | Aftertouch message to specified channel.
 -- | The aftertouch value is expected to be between 0.0 and 1.0.

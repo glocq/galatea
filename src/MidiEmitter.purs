@@ -8,23 +8,21 @@ import Data.Tuple.Nested       ((/\))
 import Control.Monad.ST.Ref    (STRef, new, read, write)
 import Control.Monad.ST.Global (Global, toEffect)
 import Effect                  (Effect)
+import Effect.Class.Console    (log)
 -- Deku-related modules
 import Deku.Core           as D
 import Deku.DOM            as DD
 import Deku.DOM.Attributes as DA
 import Deku.DOM.Self       as Self
-import FRP.Event           as FRP
--- For debugging purposes; to be deleted eventually
-import Effect.Class.Console (log)
+import FRP.Event           as Event
 -- Local modules
-import Types as Types
+import Types   as Types
+import WebMidi as MIDI
 
 
 
 type PlayingState = { currentNote :: Maybe Int }
 
--- | (Work in progress: no MIDI messages emitted for now, just messages printed
--- | to the console)
 -- | This "MIDI emitter" is a sink for messages coming from the control surface,
 -- | and outputs MIDI messages based on those.
 -- | It shows up as an empty `<div>` in the DOM.
@@ -39,26 +37,38 @@ component :: D.NutWith Types.Wires
 component wires = Deku.do
   DD.div
     -- Subscribe to pointer events at element creation:
-    [ Self.self $ wires.settings <#> \settings _ -> do
-        let surfaceEvent = wires.surfaceOut.event
-        stateRef <- toEffect $ new {currentNote: Nothing} -- we store internal state in a ST reference
-        void $ toEffect $
-          FRP.subscribe surfaceEvent $ surfaceMsgCallback settings stateRef
-
-    , DA.id_ "dummyMidiEmitterNode"
+    [ Self.self $ const <$> (initialize wires.surfaceOut.event
+                                    <$> wires.settings
+                                    <*> wires.midiOutput)
+    , DA.id_ "midiEmitter"
     ] []
 
 
 
+initialize :: Event.Event Types.SurfaceMsg
+           -> Types.Settings
+           -> Maybe MIDI.Output
+           -> Effect Unit
+initialize surfaceEvent settings output = do
+  stateRef <- toEffect $ new {currentNote: Nothing} -- we store internal state in a ST reference
+  void $ toEffect $
+    Event.subscribe surfaceEvent $ surfaceMsgCallback settings output stateRef
 
+
+
+maybeSendMidi :: Maybe MIDI.Output -> MIDI.Message -> Effect Unit
+maybeSendMidi maybeOutput msg = case maybeOutput of
+  Nothing -> log $ "No MIDI output found to send message " <> show msg
+  Just output -> MIDI.sendMessage output msg
 
 
 
 surfaceMsgCallback :: Types.Settings
+                   -> Maybe MIDI.Output
                    -> STRef Global PlayingState
                    -> Types.SurfaceMsg
                    -> Effect Unit
-surfaceMsgCallback settings ref msg = do
+surfaceMsgCallback settings output ref msg = do
 
   -- First we'll determine how to convert from normalized position on
   -- the control to pitch value (in MIDI semitones):
@@ -90,28 +100,28 @@ surfaceMsgCallback settings ref msg = do
       -- Update state: a note is now playing:
       _ <- toEffect $ write {currentNote: Just newNote} ref
       -- Send NoteOn, pitch bend and aftertouch messages accordingly:
-      log $ "NoteOn " <> show newNote
-      log $ "Pitch bend " <> show (pitch - toNumber newNote)
-      log $ "Aftertouch " <> show properties.pressure
+      maybeSendMidi output $ MIDI.noteOn settings.midiChannel newNote properties.pressure
+      maybeSendMidi output $ MIDI.pitchBend' settings.pitchBendHalfRange settings.midiChannel $ pitch - toNumber newNote
+      maybeSendMidi output $ MIDI.aftertouch settings.midiChannel properties.pressure
 
     -- Pointer moved while we were playing: no NoteOn, but update pitch bend
     -- and aftertouch:
     (Just note /\ Types.Move properties) -> do
       let pitch = toPitch properties.x
-      log $ "Pitch bend " <> show (pitch - toNumber note)
-      log $ "Aftertouch " <> show properties.pressure
+      maybeSendMidi output $ MIDI.pitchBend' settings.pitchBendHalfRange settings.midiChannel $ pitch - toNumber note
+      maybeSendMidi output $ MIDI.aftertouch settings.midiChannel properties.pressure
 
     -- A note was playing, and the pointer was pressed again:
     -- This should not have happened, we'll just pretend the pointer moved
     -- instead of being put in contact again, so we do the same as above:
     (Just note /\ Types.Start properties) -> do
       let pitch = toPitch properties.x
-      log $ "Pitchbend " <> show (pitch - toNumber note)
-      log $ "Aftertouch " <> show properties.pressure
+      maybeSendMidi output $ MIDI.pitchBend' settings.pitchBendHalfRange settings.midiChannel $ pitch - toNumber note
+      maybeSendMidi output $ MIDI.aftertouch settings.midiChannel properties.pressure
 
     -- A note was playing, and the pointer was put out of contact:
     -- stop the note by sending a NoteOff, and update internal state so we know
     -- we're not playing anymore:
     (Just note /\ Types.Stop _) -> do
       _ <- toEffect $ write {currentNote: Nothing} ref
-      log $ "NoteOff " <> show note
+      maybeSendMidi output $ MIDI.noteOff settings.midiChannel note Nothing

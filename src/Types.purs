@@ -33,6 +33,8 @@ type Settings = { mode :: Mode
                 , leftPitch  :: Number
                 , rightPitch :: Number
                 , blackKeyRatio :: Number
+                , midiChannel :: Int
+                , pitchBendHalfRange :: Number
                 }
 
 defaultSettings :: Settings
@@ -40,6 +42,8 @@ defaultSettings = { mode: Instrument
                   , leftPitch:  48.0
                   , rightPitch: 72.0
                   , blackKeyRatio: 0.8
+                  , midiChannel: 0
+                  , pitchBendHalfRange: 2.0
                   }
 
 data SurfaceMsg
