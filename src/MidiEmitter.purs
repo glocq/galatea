@@ -4,7 +4,7 @@ module MidiEmitter (component) where
 import Prelude
 import Data.Int                (round, toNumber)
 import Data.Maybe              (Maybe(..))
-import Data.Tuple.Nested       ((/\))
+import Data.Tuple.Nested       (type (/\), (/\))
 import Control.Monad.ST        (ST)
 import Control.Monad.ST.Ref    (STRef, new, read, write)
 import Control.Monad.ST.Global (Global, toEffect)
@@ -83,7 +83,11 @@ subscribeToSurfaceEvents wires stateRef outputRef settings = toEffect $ void $
   Event.subscribe wires.surfaceOut.event $ \message -> do
     oldState <- toEffect $ read stateRef
     output   <- toEffect $ read outputRef
-    newState <- surfaceMsgCallback output oldState settings message
+    newState <- surfaceMsgCallback output
+                                   oldState
+                                   settings
+                                   wires.setPitchBendLimits
+                                   message
     _ <- toEffect $ write newState stateRef
     pure unit
 
@@ -98,9 +102,10 @@ subscribeToSurfaceEvents wires stateRef outputRef settings = toEffect $ void $
 surfaceMsgCallback :: Maybe MIDI.Output
                    -> PlayingState
                    -> Types.Settings
+                   -> (Maybe (Number /\ Number) -> Effect Unit)
                    -> Types.SurfaceMsg
                    -> Effect PlayingState
-surfaceMsgCallback output state settings msg = do
+surfaceMsgCallback output state settings setLimits msg = do
 
   -- First we'll determine how to convert from normalized position on
   -- the control to pitch value (in MIDI semitones):
@@ -115,7 +120,7 @@ surfaceMsgCallback output state settings msg = do
   -- that can arise depending on whether the pointer was just put in/out of contact/moved,
   -- and whether a note was already playing. There is probably a way to reduce
   -- code duplication here?
-  case (state.currentNote /\ msg) of
+  newState <- case (state.currentNote /\ msg) of
 
     -- No note was playing, and the pointer was not put in contact: do nothing:
     (Nothing /\ Types.Stop _) -> pure {currentNote: Nothing}
@@ -161,6 +166,12 @@ surfaceMsgCallback output state settings msg = do
       pure {currentNote: Nothing}
 
 
+  -- Tell control surface to display pitch bend limits
+  setLimits $ allowedRange settings newState
+  -- Return current playing state
+  pure newState
+
+
 
 -- | Helper function for the above. Sends a MIDI message through the specified
 -- | output if any, otherwise displays it in the console.
@@ -168,3 +179,19 @@ maybeSendMidi :: Maybe MIDI.Output -> MIDI.Message -> Effect Unit
 maybeSendMidi maybeOutput msg = case maybeOutput of
   Nothing -> log $ "No MIDI output found to send message " <> show msg
   Just output -> MIDI.sendMessage output msg
+
+-- | A helper function that outputs the limits, in control surface coordinates,
+-- | outside of which pitch bend will stop working
+allowedRange :: Types.Settings -> PlayingState -> Maybe (Number /\ Number)
+allowedRange settings state = case state.currentNote of
+  Nothing -> Nothing
+  Just note -> case settings.rightPitch - settings.leftPitch of
+    0.0 -> Nothing -- if the whole surface is just one note, everywhere is allowed
+    _ -> do
+      let displayedRange = settings.rightPitch - settings.leftPitch
+      let lim1Semitone = toNumber note - settings.pitchBendHalfRange
+      let lim2Semitone = toNumber note + settings.pitchBendHalfRange
+      let lim1 = (lim1Semitone - settings.leftPitch) / displayedRange
+      let lim2 = (lim2Semitone - settings.leftPitch) / displayedRange
+      if lim1 <= lim2 then Just (lim1 /\ lim2)
+                      else Just (lim2 /\ lim1)

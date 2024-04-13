@@ -80,11 +80,8 @@ leftPitchInput wires =
     , DA.step_ "1"
     , DA.value_ $ show $ round Types.defaultSettings.leftPitch
     -- Upon changing value:
-    , DL.numberOn DL.input $ wires.settings <#> \s value -> do
-        -- 1. Update value
+    , DL.numberOn DL.input $ wires.settings <#> \s value ->
         wires.setSettings $ s {leftPitch = value}
-        -- 2. Tell control surface to refresh background
-        wires.refreshBackground.push unit
     ] []
 
 
@@ -97,11 +94,8 @@ rightPitchInput wires =
     , DA.step_ "1"
     , DA.value_ $ show $ round Types.defaultSettings.rightPitch
     -- Upon changing value:
-    , DL.numberOn DL.input $ wires.settings <#> \s value -> do
-        -- 1. Update value
+    , DL.numberOn DL.input $ wires.settings <#> \s value ->
         wires.setSettings $ s {rightPitch = value}
-        -- 2. Tell control surface to refresh background
-        wires.refreshBackground.push unit
     ] []
 
 

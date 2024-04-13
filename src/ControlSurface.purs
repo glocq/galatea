@@ -3,7 +3,7 @@ module ControlSurface where
 -- General-purposes modules
 import Prelude
 import Data.Maybe        (Maybe(..))
-import Data.Tuple.Nested ((/\))
+import Data.Tuple.Nested (type (/\), (/\))
 import Data.Array        ((..))
 import Data.Foldable     (for_, elem)
 import Data.Int          (floor, ceil, toNumber)
@@ -57,7 +57,7 @@ component wires = Deku.do
 
     -- The canvases
     ([ foregroundCanvas width height
-     , middleCanvas                 
+     , middleCanvas     width height        
      , backgroundCanvas width height
      ] <@> wires)
 
@@ -84,12 +84,14 @@ foregroundCanvas width height wires =
 
 -- | The middle canvas lets the user know which zone they should avoid
 -- | when in instrument mode, due to pitch bend limitations.
-middleCanvas :: D.NutWith Types.Wires
-middleCanvas _ =
+middleCanvas :: Poll.Poll Number -> Poll.Poll Number
+             -> D.NutWith Types.Wires
+middleCanvas width height wires =
   DD.canvas
     [ DA.id_ "middleCanvas"
     , DA.style_ $ DC.render $ layerProperties 1
     , onResizeE_ resizeCanvas
+    , Self.self $ drawPitchBendLimits <$> wires.pitchBendLimits <*> width <*> height
     ] []
 
 
@@ -104,9 +106,7 @@ backgroundCanvas width height wires =
     [ DA.id_ "backgroundCanvas"
     , DA.style_ $ DC.render $ layerProperties 0
     , Self.self $ drawBackground <$> wires.settings <*> width <*> height
-    , onResizeE_ $ \elt w h -> do
-        resizeCanvas elt w h
-        wires.refreshBackground.push unit -- pinging ourselves to repaint background
+    , onResizeE_ $ \elt w h -> resizeCanvas elt w h
     ] []
 
 
@@ -141,6 +141,33 @@ resizeCanvas element w h = do
 
 
 
+drawPitchBendLimits :: Maybe (Number /\ Number)
+                    -> Number -> Number
+                    -> Element
+                    -> Effect Unit
+drawPitchBendLimits limits width height element = do
+  case fromElement element of
+    Nothing -> throw "Error: Element is not a canvas."
+    Just canvas -> do
+      let context = Canvas.context2D canvas
+      Canvas.clearRect context {x: 0.0, y: 0.0, width: width, height: height}
+      case limits of
+        Nothing -> pure unit
+        Just (lim1 /\ lim2) -> do
+          Canvas.setFillStyle context $ Color.rgba' 0.8 0.0 0.0 0.3 -- transparent red
+          Canvas.fillRect context { x: 0.0
+                                  , y: 0.0
+                                  , width: width * lim1
+                                  , height: height
+                                  }
+          Canvas.fillRect context { x: width * lim2
+                                  , y: 0.0
+                                  , width: width * (1.0 - lim2)
+                                  , height: height
+                                  }
+
+
+
 -- TODO cleanup and deal with edge cases better
 drawBackground :: Types.Settings -> Number -> Number -> Element -> Effect Unit
 drawBackground settings width height element = do
@@ -149,11 +176,7 @@ drawBackground settings width height element = do
     false -> case fromElement element of
       Nothing     -> throw "Error: Element is not a canvas."
       Just canvas -> do
-        let wholeArea = { x: 0.0
-                        , y: 0.0
-                        , width:  width
-                        , height: height
-                        }
+        let wholeArea = {x: 0.0, y: 0.0, width: width, height: height}
         let context = Canvas.context2D canvas
         Canvas.clearRect    context wholeArea
         Canvas.setFillStyle context Color.white

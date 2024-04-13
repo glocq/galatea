@@ -2,8 +2,9 @@ module Types where
 
 -- General-purpose modules
 import Prelude
-import Data.Maybe (Maybe)
-import Effect     (Effect)
+import Data.Tuple.Nested (type (/\))
+import Data.Maybe        (Maybe)
+import Effect            (Effect)
 -- Hyrule modules:
 import FRP.Poll  (Poll)
 import FRP.Event (EventIO)
@@ -15,9 +16,8 @@ import WebMidi as MIDI
 -- | to transmit events and polls
 type Wires =
   -- Events
-  { surfaceOut :: EventIO SurfaceMsg
-  , refreshBackground :: EventIO Unit
-  , updateMidiOutput :: EventIO (Maybe MIDI.Output)
+  { surfaceOut         :: EventIO SurfaceMsg
+  , updateMidiOutput   :: EventIO (Maybe MIDI.Output)
   -- Polls and poll updaters
     -- Settings
     , settings    :: Poll Settings
@@ -25,6 +25,10 @@ type Wires =
     -- MIDI:
     , midiAccess    :: Poll (Maybe MIDI.Access)
     , setMidiAccess :: Maybe MIDI.Access -> Effect Unit
+    -- The control surface area outside of which pitch bend stops working.
+    -- Values are between 0.0 and 1.0, in normalized control surface coordinates
+    , pitchBendLimits    :: Poll (Maybe (Number /\ Number))
+    , setPitchBendLimits :: Maybe (Number /\ Number) -> Effect Unit
   }
 
 data Mode = Instrument | Manual

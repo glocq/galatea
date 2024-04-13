@@ -28,24 +28,25 @@ component = do
   midiEmitter <- MidiEmitter.component
 
   -- Application graph: events
-  surfaceOut        <- FRP.create -- messages that come out of the control surface
-  refreshBackground <- FRP.create -- ping emitted when the background needs redrawing
-  updateMidiOutput  <- FRP.create -- currently selected MIDI output
+  surfaceOut         <- FRP.create -- messages that come out of the control surface
+  updateMidiOutput   <- FRP.create -- currently selected MIDI output
 
   pure $ Deku.do
 
     -- Application graph: poll(s)
-    setSettings   /\ settings   <- DH.useState Types.defaultSettings
-    setMidiAccess /\ midiAccess <- DH.useState Nothing
+    setSettings        /\ settings        <- DH.useState Types.defaultSettings
+    setMidiAccess      /\ midiAccess      <- DH.useState Nothing
+    setPitchBendLimits /\ pitchBendLimits <- DH.useState Nothing
 
     -- Putting together all application graph edges, aka communication channels:
-    let wires = { surfaceOut: surfaceOut
-                , refreshBackground: refreshBackground
-                , updateMidiOutput: updateMidiOutput
-                , settings:    settings
-                , setSettings: setSettings
-                , midiAccess:    midiAccess
-                , setMidiAccess: setMidiAccess
+    let wires = { surfaceOut:         surfaceOut
+                , updateMidiOutput:   updateMidiOutput
+                , settings:           settings
+                , setSettings:        setSettings
+                , midiAccess:         midiAccess
+                , setMidiAccess:      setMidiAccess
+                , pitchBendLimits:    pitchBendLimits
+                , setPitchBendLimits: setPitchBendLimits
                 }
 
     -- The actual web app:
