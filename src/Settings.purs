@@ -4,9 +4,9 @@ module Settings where
 import Prelude
 import Data.Int          (round)
 import Data.Tuple.Nested ((/\))
-import Data.Maybe        (Maybe(..))
-import Data.Array        (head)
+import Data.Maybe        (Maybe(..), isNothing)
 import Data.Either       (Either, hush)
+import Data.Array        (head)
 import Effect.Aff        (runAff_)
 import Effect            (Effect)
 -- Web
@@ -18,6 +18,7 @@ import WebMidi                    as MIDI
 -- Deku-related modules
 import Deku.Core           as D
 import Deku.Hooks          ((<#~>))
+import Deku.Hooks          as DH
 import Deku.DOM            as DD
 import Deku.DOM.Attributes as DA
 import Deku.DOM.Listeners  as DL
@@ -137,11 +138,22 @@ pitchBendHalfRange wires =
 
 midiOutputDropdown :: D.NutWith Types.Wires
 midiOutputDropdown wires =
-  DD.select
-    [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess
-    , DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess
+  DD.div
+    -- Automatically request MIDI access on startup
+    [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess ]
+    -- If no access...
+    [ DH.guard (isNothing <$> wires.midiAccess) $
+        -- Display a button to try requesting MIDI access again
+        DD.button
+          [ DL.click_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess ]
+          [ DD.text_ "No MIDI access. Try again" ]
+    -- If we have MIDI access...
+    , DH.guard (not <<< isNothing <$> wires.midiAccess) $
+        -- Display the list of available outputs
+        DD.select
+          [ DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess ]
+          [ midiOutputEntries wires ]
     ]
-    [ midiOutputEntries wires ]
 
 
 setAccess :: forall error
@@ -150,6 +162,7 @@ setAccess :: forall error
           -> Effect Unit
 setAccess wires eitherMaybeAccess = do
   -- All the combinators in this function are here to deal with Maybes.
+  -- Remove them, and you pretty much have the non-Maybe version
   let maybeAccess = eitherMaybeAccess # hush # join
   -- Set MIDI access:
   wires.setMidiAccess maybeAccess
