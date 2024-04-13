@@ -5,6 +5,7 @@ import Prelude
 import Data.Int          (round)
 import Data.Tuple.Nested ((/\))
 import Data.Maybe        (Maybe(..))
+import Data.Array        (head)
 import Data.Either       (Either, hush)
 import Effect.Aff        (runAff_)
 import Effect            (Effect)
@@ -147,7 +148,15 @@ setAccess :: forall error
            . Types.Wires
           -> Either error (Maybe MIDI.Access)
           -> Effect Unit
-setAccess wires emAccess = wires.setMidiAccess $ join $ hush emAccess
+setAccess wires eitherMaybeAccess = do
+  -- All the combinators in this function are here to deal with Maybes.
+  let maybeAccess = eitherMaybeAccess # hush # join
+  -- Set MIDI access:
+  wires.setMidiAccess maybeAccess
+  -- Set MIDI output to be the first output on the list, if any:
+  let firstID = maybeAccess <#> MIDI.outputIDs <#> head # join
+  let firstOutput = MIDI.getOutput <$> maybeAccess <*> firstID # join
+  wires.updateMidiOutput.push firstOutput
 
 
 midiOutputSelectionCallback :: Types.Wires
