@@ -76,7 +76,7 @@ pitchBend channel value = do
   let normalizedValue = toIntRange 16_383 $ (value + 1.0) / 2.0
   let lsb = normalizedValue `div` 128 -- least significant bit
   let msb = normalizedValue `mod` 128 -- most significant bit
-  Message [224 + channel, lsb, msb]
+  Message [224 + channel, msb, lsb]
 
 -- | A convenience function where you specify the pitch bend value in semitones.
 pitchBend' :: Number -> Int -> Number -> Message
