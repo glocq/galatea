@@ -7,8 +7,8 @@ import Effect                 (Effect)
 -- Deku-related module:
 import Deku.Toplevel (runInBody)
 -- Local module:
-import Galatea as G
+import Galatea as Galatea
 
 
 main :: Effect Unit
-main = runInBody =<< liftST G.galatea
+main = runInBody =<< liftST Galatea.component

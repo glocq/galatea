@@ -30,7 +30,7 @@ import Types as Types
 
 -- | A component which displays an interface
 -- | for choosing the application settings.
-component :: Types.Wires -> D.Nut
+component :: D.NutWith Types.Wires
 component wires = DD.div_ $
   [ modeButton Types.Instrument
   , modeButton Types.Manual
@@ -44,7 +44,7 @@ component wires = DD.div_ $
 
 
 
-modeButton :: Types.Mode -> Types.Wires -> D.Nut
+modeButton :: Types.Mode -> D.NutWith Types.Wires
 modeButton mode wires =
   DD.button
     -- Style button based on whether it corresponds to the selected mode:
@@ -71,7 +71,7 @@ inactiveButtonStyle = do
 
 
 
-leftPitchInput :: Types.Wires -> D.Nut
+leftPitchInput :: D.NutWith Types.Wires
 leftPitchInput wires =
   DD.input
     [ DA.xtypeNumber
@@ -88,7 +88,7 @@ leftPitchInput wires =
 
 
 
-rightPitchInput :: Types.Wires -> D.Nut
+rightPitchInput :: D.NutWith Types.Wires
 rightPitchInput wires =
   DD.input
     [ DA.xtypeNumber
@@ -134,7 +134,7 @@ pitchBendHalfRange wires =
 
 
 
-midiOutputDropdown :: Types.Wires -> D.Nut
+midiOutputDropdown :: D.NutWith Types.Wires
 midiOutputDropdown wires =
   DD.select
     [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess
@@ -163,7 +163,7 @@ midiOutputSelectionCallback wires maybeAccess event = do
     _ -> pure unit
 
 
-midiOutputEntries :: Types.Wires -> D.Nut
+midiOutputEntries :: D.NutWith Types.Wires
 midiOutputEntries wires = wires.midiAccess <#~> case _ of
   Nothing -> mempty
   Just access -> D.fixed $ MIDI.outputIDs access <#> \id ->

@@ -68,8 +68,7 @@ component wires = Deku.do
 -- | It also displays a visual indicator of the position and pressure
 -- | of the pointer device.
 foregroundCanvas :: Poll.Poll Number -> Poll.Poll Number
-                 -> Types.Wires
-                 -> D.Nut
+                 -> D.NutWith Types.Wires
 foregroundCanvas width height wires =
   DD.canvas
     [ DA.id_ "foregroundCanvas"
@@ -85,7 +84,7 @@ foregroundCanvas width height wires =
 
 -- | The middle canvas lets the user know which zone they should avoid
 -- | when in instrument mode, due to pitch bend limitations.
-middleCanvas :: Types.Wires -> D.Nut
+middleCanvas :: D.NutWith Types.Wires
 middleCanvas _ =
   DD.canvas
     [ DA.id_ "middleCanvas"
@@ -99,8 +98,7 @@ middleCanvas _ =
 -- | separation between adjacent notes, but to the central position
 -- | of each note.
 backgroundCanvas :: Poll.Poll Number -> Poll.Poll Number
-                 -> Types.Wires
-                 -> D.Nut
+                 -> D.NutWith Types.Wires
 backgroundCanvas width height wires =
   DD.canvas
     [ DA.id_ "backgroundCanvas"

@@ -20,8 +20,8 @@ import Settings       as Settings
 import MidiEmitter    as MidiEmitter
 
 
-galatea :: ST Global D.Nut
-galatea = do
+component :: ST Global D.Nut
+component = do
 
   -- This component is wrapped in ST Global, so we have to extract its value
   -- before using it:
