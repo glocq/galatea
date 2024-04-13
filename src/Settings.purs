@@ -27,6 +27,7 @@ import Types as Types
 
 
 
+
 -- | A component which displays an interface
 -- | for choosing the application settings.
 component :: Types.Wires -> D.Nut
@@ -39,6 +40,7 @@ component wires = DD.div_ $
   , pitchBendHalfRange
   , midiOutputDropdown
   ] <@> wires
+
 
 
 
@@ -56,7 +58,6 @@ modeButton mode wires =
     [ DD.text_ $ show mode <> " Mode" ]
 
 
-
 activeButtonStyle :: CSS.CSS
 activeButtonStyle = do
   CSS.backgroundColor $ Color.rgb' 0.1 0.1 0.6
@@ -66,6 +67,7 @@ inactiveButtonStyle :: CSS.CSS
 inactiveButtonStyle = do
   CSS.backgroundColor $ Color.white
   CSS.color $ Color.black
+
 
 
 
@@ -84,6 +86,8 @@ leftPitchInput wires =
     ] []
 
 
+
+
 rightPitchInput :: Types.Wires -> D.Nut
 rightPitchInput wires =
   DD.input
@@ -97,6 +101,7 @@ rightPitchInput wires =
         -- 2. Tell control surface to refresh background
         wires.refreshBackground.push unit
     ] []
+
 
 
 
@@ -114,6 +119,7 @@ midiChannel wires =
 
 
 
+
 pitchBendHalfRange :: D.NutWith Types.Wires
 pitchBendHalfRange wires =
   DD.input
@@ -127,6 +133,7 @@ pitchBendHalfRange wires =
 
 
 
+
 midiOutputDropdown :: Types.Wires -> D.Nut
 midiOutputDropdown wires =
   DD.select
@@ -134,6 +141,13 @@ midiOutputDropdown wires =
     , DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess
     ]
     [ midiOutputEntries wires ]
+
+
+setAccess :: forall error
+           . Types.Wires
+          -> Either error (Maybe MIDI.Access)
+          -> Effect Unit
+setAccess wires emAccess = wires.setMidiAccess $ join $ hush emAccess
 
 
 midiOutputSelectionCallback :: Types.Wires
@@ -145,18 +159,8 @@ midiOutputSelectionCallback wires maybeAccess event = do
   case (maybeElement /\ maybeAccess) of
     (Just elt /\ Just access) -> do
       outputID <- Select.value elt
-      wires.setMidiOutput $ MIDI.getOutput access outputID
+      wires.updateMidiOutput.push $ MIDI.getOutput access outputID
     _ -> pure unit
-
-
-
-
-setAccess :: forall error
-           . Types.Wires
-          -> Either error (Maybe MIDI.Access)
-          -> Effect Unit
-setAccess wires emAccess = wires.setMidiAccess $ join $ hush emAccess
-
 
 
 midiOutputEntries :: Types.Wires -> D.Nut

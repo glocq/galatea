@@ -1,24 +1,31 @@
 module Types where
 
+-- General-purpose modules
 import Prelude
 import Data.Maybe (Maybe)
 import Effect     (Effect)
-import FRP.Poll   (Poll)
-import FRP.Event  (EventIO)
-import WebMidi    as MIDI
+-- Hyrule modules:
+import FRP.Poll  (Poll)
+import FRP.Event (EventIO)
+-- Web utilities
+import WebMidi as MIDI
 
 
--- Wires between components, to transmit events and polls
-type Wires = { surfaceOut :: EventIO SurfaceMsg
-             , refreshBackground :: EventIO Unit
-             -- Polls and poll updaters:
-             , settings    :: Poll Settings
-             , setSettings :: Settings -> Effect Unit
-             , midiAccess    :: Poll (Maybe MIDI.Access)
-             , setMidiAccess :: Maybe MIDI.Access -> Effect Unit
-             , midiOutput    :: Poll (Maybe MIDI.Output)
-             , setMidiOutput :: Maybe MIDI.Output -> Effect Unit
-             }
+-- | Communication channels, or "wires", between components,
+-- | to transmit events and polls
+type Wires =
+  -- Events
+  { surfaceOut :: EventIO SurfaceMsg
+  , refreshBackground :: EventIO Unit
+  , updateMidiOutput :: EventIO (Maybe MIDI.Output)
+  -- Polls and poll updaters
+    -- Settings
+    , settings    :: Poll Settings
+    , setSettings :: Settings -> Effect Unit
+    -- MIDI:
+    , midiAccess    :: Poll (Maybe MIDI.Access)
+    , setMidiAccess :: Maybe MIDI.Access -> Effect Unit
+  }
 
 data Mode = Instrument | Manual
 
