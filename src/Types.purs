@@ -57,6 +57,11 @@ defaultSettings = { mode: Instrument
                   , pitchBendHalfRange: 2.0
                   }
 
+type PointerState = Maybe { x :: Number
+                          , y :: Number
+                          , pressure :: Number
+                          }
+
 data SurfaceMsg
   = Start { x :: Number, y :: Number, pressure :: Number }
   | Move  { x :: Number, y :: Number, pressure :: Number }

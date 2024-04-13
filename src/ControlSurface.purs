@@ -7,13 +7,15 @@ import Data.Tuple.Nested (type (/\), (/\))
 import Data.Array        ((..))
 import Data.Foldable     (for_, elem)
 import Data.Int          (floor, ceil, toNumber)
+import Data.Number       (pow, pi)
 import Effect            (Effect)
 import Effect.Exception  (throw)
 -- Web utilities
 import Util                          (onResize_, onResizeE_, offsetX, offsetY)
 import Web.DOM.Element               (Element)
+import Web.Event.Event               as Web.Event
 import Web.PointerEvent.PointerEvent as Ptr
-import Web.HTML.HTMLCanvasElement    (fromElement)
+import Web.HTML.HTMLCanvasElement    as CanvasElt
 import Canvas                        as Canvas
 import Color                         as Color
 import CSS                           as CSS
@@ -38,9 +40,10 @@ import Types as Types
 component :: D.NutWith Types.Wires
 component wires = Deku.do
 
-  -- Define the internal state, aka the dimensions:
+  -- Define the internal state:
   setWidth  /\ width  <- DH.useState 0.0
   setHeight /\ height <- DH.useState 0.0
+  setPointerState /\ pointerState <- DH.useState Nothing
 
   -- The actual component: a div with three stacked canvases inside
   DD.div
@@ -56,30 +59,133 @@ component wires = Deku.do
     ]
 
     -- The canvases
-    ([ foregroundCanvas width height
+    ([ foregroundCanvas width height pointerState setPointerState
      , middleCanvas     width height        
      , backgroundCanvas width height
      ] <@> wires)
 
 
 
+-----------------------
+-- Foreground Canvas --
+-----------------------
+
 
 -- | The foreground canvas is the one that receives the pointer events.
 -- | It also displays a visual indicator of the position and pressure
 -- | of the pointer device.
 foregroundCanvas :: Poll.Poll Number -> Poll.Poll Number
+                 -> Poll.Poll Types.PointerState
+                 -> (Types.PointerState -> Effect Unit)
                  -> D.NutWith Types.Wires
-foregroundCanvas width height wires =
+foregroundCanvas width height pointerState setPointerState wires =
   DD.canvas
     [ DA.id_ "foregroundCanvas"
     , DA.style_ $ DC.render $ layerProperties 2
-    , DL.pointerdown   $ onPointerStart wires <$> width <*> height
-    , DL.pointerup     $ onPointerStop  wires <$> width <*> height
-    , DL.pointercancel $ onPointerStop  wires <$> width <*> height
-    , DL.pointermove   $ onPointerMove  wires <$> width <*> height
+    , DL.pointerdown   $ action onPointerStart <$> width <*> height <*> pointerState
+    , DL.pointerup     $ action onPointerStop  <$> width <*> height <*> pointerState
+    , DL.pointercancel $ action onPointerStop  <$> width <*> height <*> pointerState
+    , DL.pointermove   $ action onPointerMove  <$> width <*> height <*> pointerState
     , onResizeE_ resizeCanvas
     ]
     [ DD.text_ "Your browser does not support the canvas element." ]
+
+  where action updater w h ptr ev = do
+          updater wires setPointerState w h ev
+          paintPointer w h ptr $? ptrEventToElement ev
+
+
+
+paintPointer :: Number -> Number
+             -> Types.PointerState
+             -> CanvasElt.HTMLCanvasElement
+             -> Effect Unit
+paintPointer width height pointerState canvas = do
+  let context = Canvas.context2D canvas
+  let wholeCanvas = { x: 0.0
+                    , y: 0.0
+                    , width:  width
+                    , height: height
+                    }
+  Canvas.clearRect context wholeCanvas
+  case pointerState of
+    Nothing -> pure unit
+    Just st -> if st.pressure <= 0.0 then pure unit else do
+      let x = st.x
+      let y = st.y
+      let pressure = st.pressure
+      Canvas.clearRect context wholeCanvas
+      -- Draw a couple of concentric circles whose opacity is dependent on pressure.
+      -- The formulae for radius and opacity have been determined through
+      -- trial and error, which is why they look arbitrary:
+      -- (TODO improve/rationalize those? I think they are not beautiful but
+      -- they feel good when I play the tablet)
+      for_ (0..5) $ \i -> do
+        let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
+        let iNum = toNumber i
+        let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
+        let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 (6.0 * pressure - iNum) `pow` 2.0
+        Canvas.beginPath    context
+        Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
+        Canvas.arc          context x y radius 0.0 (2.0 * pi) true
+        Canvas.fill         context
+
+
+
+onPointerStart :: Types.Wires
+               -> (Types.PointerState -> Effect Unit)
+               -> Number -> Number
+               -> Ptr.PointerEvent
+               -> Effect Unit
+onPointerStart wires setPointerState width height ptrEvt = do
+  let mouseEvt = Ptr.toMouseEvent ptrEvt
+  -- Set pointer state internally to redraw pointer
+  setPointerState $ Just { x: offsetX mouseEvt
+                         , y: offsetY mouseEvt
+                         , pressure: Ptr.pressure ptrEvt
+                         }
+  -- Send pointer state to the outside
+  wires.surfaceOut.push $ Types.Start { x: offsetX mouseEvt / width
+                                      , y: offsetY mouseEvt / height
+                                      , pressure: Ptr.pressure ptrEvt
+                                      }
+
+onPointerStop :: Types.Wires
+              -> (Types.PointerState -> Effect Unit)
+              -> Number -> Number
+              -> Ptr.PointerEvent
+              -> Effect Unit
+onPointerStop wires setPointerState width height ptrEvt = do
+  let mouseEvt = Ptr.toMouseEvent ptrEvt
+  -- Set pointer state internally to (not) redraw pointer
+  setPointerState $ Nothing
+  -- Send pointer state to the outside
+  wires.surfaceOut.push $ Types.Stop { x: offsetX mouseEvt / width
+                                     , y: offsetY mouseEvt / height
+                                     }
+
+onPointerMove :: Types.Wires
+              -> (Types.PointerState -> Effect Unit)
+              -> Number -> Number
+              -> Ptr.PointerEvent
+              -> Effect Unit
+onPointerMove wires setPointerState width height ptrEvt = do
+  let mouseEvt = Ptr.toMouseEvent ptrEvt
+  -- Set pointer state internally to redraw pointer
+  setPointerState $ Just { x: offsetX mouseEvt
+                         , y: offsetY mouseEvt
+                         , pressure: Ptr.pressure ptrEvt
+                         }
+  -- Send pointer state to the outside
+  wires.surfaceOut.push $ Types.Move { x: offsetX mouseEvt / width
+                                     , y: offsetY mouseEvt / height
+                                     , pressure: Ptr.pressure ptrEvt
+                                     }
+
+
+-------------------
+-- Middle Canvas --
+-------------------
 
 
 -- | The middle canvas lets the user know which zone they should avoid
@@ -95,58 +201,12 @@ middleCanvas width height wires =
     ] []
 
 
--- | The background canvas displays a visual help resembling a piano keyboard.
--- | It differs from a piano keyboard in that the lines do not correspond to
--- | separation between adjacent notes, but to the central position
--- | of each note.
-backgroundCanvas :: Poll.Poll Number -> Poll.Poll Number
-                 -> D.NutWith Types.Wires
-backgroundCanvas width height wires =
-  DD.canvas
-    [ DA.id_ "backgroundCanvas"
-    , DA.style_ $ DC.render $ layerProperties 0
-    , Self.self $ drawBackground <$> wires.settings <*> width <*> height
-    , onResizeE_ $ \elt w h -> resizeCanvas elt w h
-    ] []
-
-
-
-
--- | Those properties are useful for stacking several layer elements inside a
--- | common parent, in such a way that each layer takes up the whole space of the
--- | parent. The argument zIndex determines which layers are to be put in front of
--- | which other layers: the greater the zIndex, the more in front of the stack it
--- | will be.
--- | Make sure that the parent does NOT have position: static! position: relative
--- | can be used instead.
-layerProperties :: Int -> CSS.CSS
-layerProperties zIndex = do
-  CSS.position CSS.absolute
-  CSS.height $ CSS.pct 100.0
-  CSS.width  $ CSS.pct 100.0
-  CSS.zIndex zIndex
-
-
-
-
--- | Resize a canvas' resolution. To be called with the new dimensions whenever
--- | the canvas is resized.
-resizeCanvas :: Element -> Number -> Number -> Effect Unit
-resizeCanvas element w h = do
-  case fromElement element of
-    Nothing -> throw "Error: Element is not a canvas."
-    Just canvas -> do
-      Canvas.setWidth  canvas w
-      Canvas.setHeight canvas h
-
-
-
 drawPitchBendLimits :: Maybe (Number /\ Number)
                     -> Number -> Number
                     -> Element
                     -> Effect Unit
-drawPitchBendLimits limits width height element = do
-  case fromElement element of
+drawPitchBendLimits limits width height element =
+  case CanvasElt.fromElement element of
     Nothing -> throw "Error: Element is not a canvas."
     Just canvas -> do
       let context = Canvas.context2D canvas
@@ -168,12 +228,32 @@ drawPitchBendLimits limits width height element = do
 
 
 
+-----------------------
+-- Background Canvas --
+-----------------------
+
+
+-- | The background canvas displays a visual help resembling a piano keyboard.
+-- | It differs from a piano keyboard in that the lines do not correspond to
+-- | separation between adjacent notes, but to the central position
+-- | of each note.
+backgroundCanvas :: Poll.Poll Number -> Poll.Poll Number
+                 -> D.NutWith Types.Wires
+backgroundCanvas width height wires =
+  DD.canvas
+    [ DA.id_ "backgroundCanvas"
+    , DA.style_ $ DC.render $ layerProperties 0
+    , Self.self $ drawBackground <$> wires.settings <*> width <*> height
+    , onResizeE_ $ \elt w h -> resizeCanvas elt w h
+    ] []
+
+
 -- TODO cleanup and deal with edge cases better
 drawBackground :: Types.Settings -> Number -> Number -> Element -> Effect Unit
 drawBackground settings width height element = do
   case settings.leftPitch == settings.rightPitch of
     true  -> pure unit
-    false -> case fromElement element of
+    false -> case CanvasElt.fromElement element of
       Nothing     -> throw "Error: Element is not a canvas."
       Just canvas -> do
         let wholeArea = {x: 0.0, y: 0.0, width: width, height: height}
@@ -203,35 +283,42 @@ drawBackground settings width height element = do
 
 
 
+----------------------
+-- Helper Functions --
+----------------------
 
-onPointerStart :: Types.Wires
-               -> Number -> Number
-               -> Ptr.PointerEvent
-               -> Effect Unit
-onPointerStart wires width height ptrEvt = do
-  let mouseEvt = Ptr.toMouseEvent ptrEvt
-  wires.surfaceOut.push $ Types.Start { x: offsetX mouseEvt / width
-                                      , y: offsetY mouseEvt / height
-                                      , pressure: Ptr.pressure ptrEvt
-                                      }
+ptrEventToElement :: Ptr.PointerEvent -> Maybe CanvasElt.HTMLCanvasElement
+ptrEventToElement evt = evt # Ptr.toEvent # Web.Event.target >>= CanvasElt.fromEventTarget
 
-onPointerStop :: Types.Wires
-              -> Number -> Number
-              -> Ptr.PointerEvent
-              -> Effect Unit
-onPointerStop wires width height ptrEvt = do
-  let mouseEvt = Ptr.toMouseEvent ptrEvt
-  wires.surfaceOut.push $ Types.Stop { x: offsetX mouseEvt / width
-                                     , y: offsetY mouseEvt / height
-                                     }
+performIfJust :: forall a. (a -> Effect Unit) -> Maybe a -> Effect Unit
+performIfJust _      Nothing  = pure unit
+performIfJust effect (Just x) = effect x
 
-onPointerMove :: Types.Wires
-              -> Number -> Number
-              -> Ptr.PointerEvent
-              -> Effect Unit
-onPointerMove wires width height ptrEvt = do
-  let mouseEvt = Ptr.toMouseEvent ptrEvt
-  wires.surfaceOut.push $ Types.Move { x: offsetX mouseEvt / width
-                                     , y: offsetY mouseEvt / height
-                                     , pressure: Ptr.pressure ptrEvt
-                                     }
+infixl 4 performIfJust as $?
+
+
+-- | Those properties are useful for stacking several layer elements inside a
+-- | common parent, in such a way that each layer takes up the whole space of the
+-- | parent. The argument zIndex determines which layers are to be put in front of
+-- | which other layers: the greater the zIndex, the more in front of the stack it
+-- | will be.
+-- | Make sure that the parent does NOT have position: static! position: relative
+-- | can be used instead.
+layerProperties :: Int -> CSS.CSS
+layerProperties zIndex = do
+  CSS.position CSS.absolute
+  CSS.height $ CSS.pct 100.0
+  CSS.width  $ CSS.pct 100.0
+  CSS.zIndex zIndex
+
+
+
+-- | Resize a canvas' resolution. To be called with the new dimensions whenever
+-- | the canvas is resized.
+resizeCanvas :: Element -> Number -> Number -> Effect Unit
+resizeCanvas element w h = do
+  case CanvasElt.fromElement element of
+    Nothing -> throw "Error: Element is not a canvas."
+    Just canvas -> do
+      Canvas.setWidth  canvas w
+      Canvas.setHeight canvas h
