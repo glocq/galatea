@@ -40,16 +40,21 @@ component = do
   -- mixing subscriptions with polls:
   playingStateRef <- new defaultPlayingState
   midiOutputRef   <- new Nothing
+  (outputUpdateSubscriptionRef :: STRef Global (ST Global Unit)) <- new $ pure unit
+  (surfaceSubscriptionRef      :: STRef Global (ST Global Unit)) <- new $ pure unit
 
   pure $ \wires -> DD.div
     [ DA.id_ "midiEmitter"
     -- Subscribe to MIDI output updates at element creation:
-    , Self.self_ $ const  $ subscribeToOutputUpdates wires midiOutputRef
+    , Self.self_ $ const  $ subscribeToOutputUpdates wires
+                                                     surfaceSubscriptionRef
+                                                     midiOutputRef
     -- Subscribe to pointer events at element creation:
-    , Self.self  $ const <$> subscribeToSurfaceEvents wires
-                                                      playingStateRef
-                                                      midiOutputRef <$>
-                                                      wires.settings
+    , Self.self $ const <$> subscribeToSurfaceEvents wires
+                                                     outputUpdateSubscriptionRef
+                                                     playingStateRef
+                                                     midiOutputRef <$>
+                                                     wires.settings
     ] []
 
 
@@ -67,29 +72,46 @@ defaultPlayingState = { currentNote: Nothing }
 -----------------------------------------------
 
 subscribeToOutputUpdates :: Types.Wires
+                         -> STRef Global (ST Global Unit)
                          -> STRef Global (Maybe MIDI.Output)
                          -> Effect Unit
-subscribeToOutputUpdates wires ref = toEffect $ void $
-  Event.subscribe wires.updateMidiOutput.event $ \output ->
-    toEffect $ void $ write output ref
+subscribeToOutputUpdates wires subscriptionRef outputRef = do
+  -- Get former subscription from reference:
+  formerSubscription <- toEffect $ read subscriptionRef
+  -- Actually unsubscribe:
+  toEffect formerSubscription
+  -- Make a new subscription:
+  newSubscription <- toEffect $ Event.subscribe wires.updateMidiOutput.event $
+    \output -> toEffect $ void $ write output outputRef
+  -- Store subscription for the when we'll want to unsubscribe:
+  void $ toEffect $ write newSubscription subscriptionRef
 
 
 subscribeToSurfaceEvents :: Types.Wires
+                         -> STRef Global (ST Global Unit)
                          -> STRef Global (PlayingState)
                          -> STRef Global (Maybe MIDI.Output)
                          -> Types.Settings
                          -> Effect Unit
-subscribeToSurfaceEvents wires stateRef outputRef settings = toEffect $ void $
-  Event.subscribe wires.surfaceOut.event $ \message -> do
-    oldState <- toEffect $ read stateRef
-    output   <- toEffect $ read outputRef
-    newState <- surfaceMsgCallback output
-                                   oldState
-                                   settings
-                                   wires.setPitchBendLimits
-                                   message
-    _ <- toEffect $ write newState stateRef
-    pure unit
+subscribeToSurfaceEvents wires subscriptionRef stateRef outputRef settings = do
+  -- Get former subscription from reference:
+  formerSubscription <- toEffect $ read subscriptionRef
+  -- Actually unsubscribe:
+  toEffect formerSubscription
+  -- Make a new subscription:
+  newSubscription <- toEffect $ Event.subscribe wires.surfaceOut.event $
+    \message -> do
+      oldState <- toEffect $ read stateRef
+      output   <- toEffect $ read outputRef
+      newState <- surfaceMsgCallback output
+                                     oldState
+                                     settings
+                                     wires.setPitchBendLimits
+                                     message
+      _ <- toEffect $ write newState stateRef
+      pure unit
+  -- Store subscription for the when we'll want to unsubscribe:
+  void $ toEffect $ write newSubscription subscriptionRef
 
 
 
