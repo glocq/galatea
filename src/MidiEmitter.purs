@@ -37,11 +37,11 @@ component :: ST Global (D.NutWith Types.Wires)
 component = do
 
   -- We use the ST monad to keep track of some state, because I had problems
-  -- mixing subscriptions with polls:
+  -- mixing subscriptions with polls.
   playingStateRef <- new defaultPlayingState
   midiOutputRef   <- new Nothing
-  (outputUpdateSubscriptionRef :: STRef Global (ST Global Unit)) <- new $ pure unit
-  (surfaceSubscriptionRef      :: STRef Global (ST Global Unit)) <- new $ pure unit
+  outputUpdateSubscriptionRef <- new $ pure unit
+  surfaceSubscriptionRef      <- new $ pure unit
 
   pure $ \wires -> DD.div
     [ DA.id_ "midiEmitter"
