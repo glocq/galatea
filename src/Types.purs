@@ -31,13 +31,13 @@ type Wires =
     , setPitchBendLimits :: Maybe (Number /\ Number) -> Effect Unit
   }
 
-data Mode = Instrument | Manual
+data Mode = Instrument | CC
 
 derive instance eqMode :: Eq Mode
 
 instance showMode :: Show Mode where
   show Instrument = "Instrument"
-  show Manual     = "Manual"
+  show CC         = "CC"
 
 
 type Settings = { mode :: Mode
@@ -45,8 +45,14 @@ type Settings = { mode :: Mode
                 , rightPitch :: Number
                 , blackKeyRatio :: Number
                 , midiChannel :: Int
+                -- Settings for instrument mode
                 , pitchBendHalfRange :: Number
+                -- Settings for CC mode
+                , horizontalCC :: Int
+                , verticalCC   :: Int
+                , pressureCC   :: Int
                 }
+
 
 defaultSettings :: Settings
 defaultSettings = { mode: Instrument
@@ -54,13 +60,20 @@ defaultSettings = { mode: Instrument
                   , rightPitch: 72.0
                   , blackKeyRatio: 0.8
                   , midiChannel: 0
+                  -- Settings for instrument mode
                   , pitchBendHalfRange: 2.0
+                  -- Settings for raw mode
+                  , horizontalCC: 10
+                  , verticalCC:   1
+                  , pressureCC:   2
                   }
 
 type PointerState = Maybe { x :: Number
                           , y :: Number
                           , pressure :: Number
                           }
+
+data SurfaceDimension = Horizontal | Vertical | Pressure
 
 data SurfaceMsg
   = Start { x :: Number, y :: Number, pressure :: Number }

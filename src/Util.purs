@@ -4,6 +4,7 @@ module Util where
 import Prelude
 import Effect            (Effect)
 import Data.Traversable  (traverse_)
+import Data.Maybe        (Maybe(..))
 -- Web utilities
 import Web.DOM.Element           as Element
 import Web.Resize.Observer       as RO
@@ -79,3 +80,14 @@ onResizeE_ callback = onResizeE $ \element entries _ ->
 foreign import offsetX :: Mouse.MouseEvent -> Number
 -- | Y coordinate of the mouse event relative to its target element
 foreign import offsetY :: Mouse.MouseEvent -> Number
+
+
+-----------------------
+-- Helpful combinator --
+-----------------------
+
+performIfJust :: forall a. (a -> Effect Unit) -> Maybe a -> Effect Unit
+performIfJust _      Nothing  = pure unit
+performIfJust effect (Just x) = effect x
+
+infixl 4 performIfJust as $?

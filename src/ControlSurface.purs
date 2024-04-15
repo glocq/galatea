@@ -11,7 +11,6 @@ import Data.Number       (pow, pi)
 import Effect            (Effect)
 import Effect.Exception  (throw)
 -- Web utilities
-import Util                          (onResize_, onResizeE_, offsetX, offsetY)
 import Web.DOM.Element               (Element)
 import Web.Event.Event               as Web.Event
 import Web.PointerEvent.PointerEvent as Ptr
@@ -30,6 +29,7 @@ import Deku.DOM.Listeners  as DL
 import Deku.DOM.Self       as Self
 import FRP.Poll            as Poll
 -- Local modules
+import Util  (($?), onResize_, onResizeE_, offsetX, offsetY)
 import Types as Types
 
 
@@ -289,12 +289,6 @@ drawBackground settings width height element = do
 
 ptrEventToElement :: Ptr.PointerEvent -> Maybe CanvasElt.HTMLCanvasElement
 ptrEventToElement evt = evt # Ptr.toEvent # Web.Event.target >>= CanvasElt.fromEventTarget
-
-performIfJust :: forall a. (a -> Effect Unit) -> Maybe a -> Effect Unit
-performIfJust _      Nothing  = pure unit
-performIfJust effect (Just x) = effect x
-
-infixl 4 performIfJust as $?
 
 
 -- | Those properties are useful for stacking several layer elements inside a

@@ -6,8 +6,9 @@ import Data.Int          (round)
 import Data.Tuple.Nested ((/\))
 import Data.Maybe        (Maybe(..), isNothing)
 import Data.Either       (Either, hush)
-import Data.Array        (head)
+import Data.Array        (head, (..))
 import Effect.Aff        (runAff_)
+import Effect.Exception  (throw)
 import Effect            (Effect)
 -- Web
 import Web.Event.Event            as Event
@@ -24,9 +25,11 @@ import Deku.DOM.Attributes as DA
 import Deku.DOM.Listeners  as DL
 import Deku.DOM.Self       as Self
 import Deku.CSS            as DC
+import FRP.Poll            as Poll
 -- Local modules
-import Types as Types
-
+import Util      (($?))
+import Types     as Types
+import MidiTable (ccName)
 
 
 
@@ -35,16 +38,21 @@ import Types as Types
 component :: D.NutWith Types.Wires
 component wires = DD.div_ $
   [ modeButton Types.Instrument
-  , modeButton Types.Manual
+  , modeButton Types.CC
   , leftPitchInput
   , rightPitchInput
   , midiChannel
-  , pitchBendHalfRange
+  , modeSpecificSettings
   , midiOutputDropdown
   ] <@> wires
 
 
 
+--------------------------------------------------------------------------------
+
+--------------------------
+-- Control Mode Buttons --
+--------------------------
 
 modeButton :: Types.Mode -> D.NutWith Types.Wires
 modeButton mode wires =
@@ -70,7 +78,7 @@ inactiveButtonStyle = do
   CSS.backgroundColor $ Color.white
   CSS.color $ Color.black
 
-
+--------------------------------------------------------------------------------
 
 
 leftPitchInput :: D.NutWith Types.Wires
@@ -105,19 +113,73 @@ midiChannel :: D.NutWith Types.Wires
 midiChannel wires =
   DD.input
     [ DA.xtypeNumber
-    , DA.min_ "0"
-    , DA.max_ "15"
+    , DA.min_ "1"
+    , DA.max_ "16"
     , DA.step_ "1"
     , DA.value_ $ show $ Types.defaultSettings.midiChannel
     , DL.numberOn DL.input $ wires.settings <#> \s value ->
-        wires.setSettings $ s {midiChannel = round value}
+        -- Important: we convert from the 1-16 range to the 0-15 range here:
+        wires.setSettings $ s {midiChannel = round value - 1}
     ] []
 
 
 
+modeSpecificSettings :: D.NutWith Types.Wires
+modeSpecificSettings wires = wires.settings <#~>
+  \settings -> case settings.mode of
+    Types.Instrument -> pitchBendHalfRangeInput wires
+    Types.CC         -> ccDropdownGroup wires
 
-pitchBendHalfRange :: D.NutWith Types.Wires
-pitchBendHalfRange wires =
+
+--------------------------------------------------------------------------------
+
+----------------------------------------
+-- CC Message Type Selection Dropdown --
+----------------------------------------
+
+ccDropdownGroup :: D.NutWith Types.Wires
+ccDropdownGroup wires = D.fixed [ ccDropdown Types.Horizontal 10 wires
+                                , ccDropdown Types.Vertical    1 wires
+                                , ccDropdown Types.Pressure    2 wires
+                                ]
+
+
+ccDropdown :: Types.SurfaceDimension -> Int -> D.NutWith Types.Wires
+ccDropdown dimension initialIndex wires =
+  DD.select
+    [ DL.change $ ccSelectionCallback dimension wires
+    -- Initialize dropdown to given initial index:
+    , Self.self_ $ \elt -> Select.setSelectedIndex initialIndex $? Select.fromElement elt
+    ] $ ccOption <$> (0 .. 127) -- Warning: do not modify the range without reading
+                                -- the warning in ccSelectionCallback first
+
+
+ccOption :: Int -> D.Nut
+ccOption number =
+  DD.option [ DA.value_ $ show number]
+            [ DD.text_  $ show number <> ": " <> ccName number ]
+
+
+ccSelectionCallback :: Types.SurfaceDimension
+                    -> Types.Wires
+                    -> Poll.Poll (Event.Event -> Effect Unit)
+ccSelectionCallback dimension wires = wires.settings <#> callback
+  where
+  callback settings event =
+    case Event.target event >>= Select.fromEventTarget of
+      Nothing -> throw "ccSelectionCallback: Not a <select> element"
+      Just elt -> do
+        ccNumber <- Select.selectedIndex elt -- Warning: this assumes that entry 1 corresponds to 1, entry 2 to 2, etc.
+        case dimension of
+          Types.Horizontal -> wires.setSettings $ settings {horizontalCC = ccNumber}
+          Types.Vertical   -> wires.setSettings $ settings {verticalCC   = ccNumber}
+          Types.Pressure   -> wires.setSettings $ settings {pressureCC   = ccNumber}
+
+
+--------------------------------------------------------------------------------
+
+pitchBendHalfRangeInput :: D.NutWith Types.Wires
+pitchBendHalfRangeInput wires =
   DD.input
     [ DA.xtypeNumber
     , DA.min_ "0"
@@ -127,7 +189,11 @@ pitchBendHalfRange wires =
         wires.setSettings $ s {pitchBendHalfRange = value}
     ] []
 
+--------------------------------------------------------------------------------
 
+------------------------------------
+-- MIDI Output Selection Dropdown --
+------------------------------------
 
 
 midiOutputDropdown :: D.NutWith Types.Wires
@@ -188,3 +254,5 @@ midiOutputEntries wires = wires.midiAccess <#~> case _ of
       Just output -> DD.option
                        [ DA.value_ id ]
                        [ DD.text_ $ MIDI.outputName output]
+
+--------------------------------------------------------------------------------
