@@ -55,7 +55,7 @@ component wires = Deku.do
     , DA.style_ $ DC.render $ do
         CSS.position CSS.relative -- This should NOT be static, lest the children not be stacked
         CSS.border CSS.solid (CSS.px 1.0) (CSS.black)
-        CSS.height $ CSS.px 300.0
+        CSS.height $ CSS.px 350.0
         CSS.width $ CSS.pct 100.0
     , onResize_ $ \w h -> do
         setWidth  w

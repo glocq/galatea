@@ -13,8 +13,6 @@ import Effect            (Effect)
 -- Web
 import Web.Event.Event            as Event
 import Web.HTML.HTMLSelectElement as Select
-import Color                      as Color
-import CSS                        as CSS
 import WebMidi                    as MIDI
 -- Deku-related modules
 import Deku.Core           as D
@@ -24,28 +22,32 @@ import Deku.DOM            as DD
 import Deku.DOM.Attributes as DA
 import Deku.DOM.Listeners  as DL
 import Deku.DOM.Self       as Self
-import Deku.CSS            as DC
 import FRP.Poll            as Poll
 -- Local modules
-import Util      (($?))
-import Types     as Types
-import MidiTable (ccName)
+import Util                 (($?))
+import Internationalization as I18n
+import Style                as Style
+import Types                as Types
+import MidiTable            (ccName)
 
 
 
 -- | A component which displays an interface
 -- | for choosing the application settings.
 component :: D.NutWith Types.Wires
-component wires = DD.div_ $
-  [ fullscreenButton
-  , modeButton Types.Instrument
-  , modeButton Types.CC
-  , leftPitchInput
-  , rightPitchInput
-  , midiChannel
-  , modeSpecificSettings
-  , midiOutputDropdown
-  ] <@> wires
+component wires =
+  DD.div
+    [ DA.style_ Style.settingsContainerStyle
+    ] $
+    [ fullscreenButton
+    , modeSwitcher
+    , leftPitchInput
+    , rightPitchInput
+    , midiChannelInput
+    , pitchBendHalfRangeInput
+    , ccDropdownGroup
+    , midiOutputDropdown
+    ] <@> wires
 
 
 
@@ -54,89 +56,92 @@ component wires = DD.div_ $
 fullscreenButton :: D.NutWith Types.Wires
 fullscreenButton wires =
   DD.button
-    [ DL.click_ $ const $ wires.setFullscreen.push unit ]
-    [ DD.text_ "Set Fullscreen" ]
+    [ DL.click_ $ const $ wires.setFullscreen.push unit
+    , DA.style_ Style.fullscreenButtonStyle
+    ]
+    [ DD.text_ I18n.setFullscreen ]
 
 
 --------------------------
 -- Control Mode Buttons --
 --------------------------
 
+modeSwitcher :: D.NutWith Types.Wires
+modeSwitcher wires =
+  DD.div
+    [ DA.style_ $ Style.modeSwitcherStyle ]
+    [ modeButton Types.Instrument wires
+    , modeButton Types.CC         wires
+    ]
+
 modeButton :: Types.Mode -> D.NutWith Types.Wires
 modeButton mode wires =
   DD.button
     -- Style button based on whether it corresponds to the selected mode:
-    [ DA.style $ wires.settings <#> \s -> DC.render $
-        if s.mode == mode then activeButtonStyle
-                          else inactiveButtonStyle
+    [ DA.style $ Style.modeButtonStyle mode <$> wires.settings
     -- Set mode upon clicking button:
     , DL.click $ wires.settings <#> \s -> const $
         wires.setSettings $ s {mode = mode}
     ]
-    [ DD.text_ $ show mode <> " Mode" ]
+    [ DD.text_ $ case mode of Types.CC         -> I18n.ccMode
+                              Types.Instrument -> I18n.instrumentMode ]
 
-
-activeButtonStyle :: CSS.CSS
-activeButtonStyle = do
-  CSS.backgroundColor $ Color.rgb' 0.1 0.1 0.6
-  CSS.color $ Color.white
-
-inactiveButtonStyle :: CSS.CSS
-inactiveButtonStyle = do
-  CSS.backgroundColor $ Color.white
-  CSS.color $ Color.black
 
 --------------------------------------------------------------------------------
 
 
 leftPitchInput :: D.NutWith Types.Wires
 leftPitchInput wires =
-  DD.input
-    [ DA.xtypeNumber
-    , DA.step_ "1"
-    , DA.value_ $ show $ round Types.defaultSettings.leftPitch
-    -- Upon changing value:
-    , DL.numberOn DL.input $ wires.settings <#> \s value ->
-        wires.setSettings $ s {leftPitch = value}
-    ] []
+  DD.label_
+    [ DD.text_ I18n.leftPitchInputLabel
+    , DD.input
+        [ DA.xtypeNumber
+        , DA.step_ "1"
+        , DA.value_ $ show $ round Types.defaultSettings.leftPitch
+        , DA.style_ Style.inputStyleStr
+        -- Upon changing value:
+        , DL.numberOn DL.input $ wires.settings <#> \s value ->
+            wires.setSettings $ s {leftPitch = value}
+        ] []
+    ]
 
 
 
 
 rightPitchInput :: D.NutWith Types.Wires
 rightPitchInput wires =
-  DD.input
-    [ DA.xtypeNumber
-    , DA.step_ "1"
-    , DA.value_ $ show $ round Types.defaultSettings.rightPitch
-    -- Upon changing value:
-    , DL.numberOn DL.input $ wires.settings <#> \s value ->
-        wires.setSettings $ s {rightPitch = value}
-    ] []
+  DD.label_
+    [ DD.text_ I18n.rightPitchInputLabel
+    , DD.input
+        [ DA.xtypeNumber
+        , DA.step_ "1"
+        , DA.value_ $ show $ round Types.defaultSettings.rightPitch
+        , DA.style_ Style.inputStyleStr
+        -- Upon changing value:
+        , DL.numberOn DL.input $ wires.settings <#> \s value ->
+            wires.setSettings $ s {rightPitch = value}
+        ] []
+    ]
 
 
 
+midiChannelInput :: D.NutWith Types.Wires
+midiChannelInput wires =
+  DD.label_
+    [ DD.text_ I18n.midiChannelInputLabel
+    , DD.input
+        [ DA.xtypeNumber
+        , DA.min_ "1"
+        , DA.max_ "16"
+        , DA.step_ "1"
+        , DA.value_ $ show $ Types.defaultSettings.midiChannel
+        , DL.numberOn DL.input $ wires.settings <#> \s value ->
+            -- Important: we convert from the 1-16 range to the 0-15 range here:
+            wires.setSettings $ s {midiChannel = round value - 1}
+        , DA.style_ Style.inputStyleStr
+        ] []
+    ]
 
-midiChannel :: D.NutWith Types.Wires
-midiChannel wires =
-  DD.input
-    [ DA.xtypeNumber
-    , DA.min_ "1"
-    , DA.max_ "16"
-    , DA.step_ "1"
-    , DA.value_ $ show $ Types.defaultSettings.midiChannel
-    , DL.numberOn DL.input $ wires.settings <#> \s value ->
-        -- Important: we convert from the 1-16 range to the 0-15 range here:
-        wires.setSettings $ s {midiChannel = round value - 1}
-    ] []
-
-
-
-modeSpecificSettings :: D.NutWith Types.Wires
-modeSpecificSettings wires = wires.settings <#~>
-  \settings -> case settings.mode of
-    Types.Instrument -> pitchBendHalfRangeInput wires
-    Types.CC         -> ccDropdownGroup wires
 
 
 --------------------------------------------------------------------------------
@@ -146,20 +151,36 @@ modeSpecificSettings wires = wires.settings <#~>
 ----------------------------------------
 
 ccDropdownGroup :: D.NutWith Types.Wires
-ccDropdownGroup wires = D.fixed [ ccDropdown Types.Horizontal 10 wires
-                                , ccDropdown Types.Vertical    1 wires
-                                , ccDropdown Types.Pressure    2 wires
-                                ]
+ccDropdownGroup wires =
+  DD.div
+    -- Only display when in CC mode:
+    [ DA.style $ Style.ccDropdownGroupStyle <$> wires.settings
+    ]
+    [ DD.label_ [ DD.text_ I18n.horizontalCCInputLabel
+                , ccDropdown Types.Horizontal 10 wires
+                ]
+    , DD.label_ [ DD.text_ I18n.verticalCCInputLabel
+                , ccDropdown Types.Vertical    1 wires
+                ]
+    , DD.label_ [ DD.text_ I18n.pressureCCInputLabel
+                , ccDropdown Types.Pressure    2 wires
+                ]
+    ]
+
 
 
 ccDropdown :: Types.SurfaceDimension -> Int -> D.NutWith Types.Wires
-ccDropdown dimension initialIndex wires =
-  DD.select
+ccDropdown dimension initialIndex wires = DD.select
+
+    -- Listen to value changes:
     [ DL.change $ ccSelectionCallback dimension wires
+    -- Size:
+    , DA.style_ $ Style.ccDropdownStyle
     -- Initialize dropdown to given initial index:
     , Self.self_ $ \elt -> Select.setSelectedIndex initialIndex $? Select.fromElement elt
+
     ] $ ccOption <$> (0 .. 119) -- Warning: do not modify the range without reading
-                                -- the warning in ccSelectionCallback first
+                                -- the warning in ccSelectionCallback first!
 
 
 ccOption :: Int -> D.Nut
@@ -188,14 +209,23 @@ ccSelectionCallback dimension wires = wires.settings <#> callback
 
 pitchBendHalfRangeInput :: D.NutWith Types.Wires
 pitchBendHalfRangeInput wires =
-  DD.input
-    [ DA.xtypeNumber
-    , DA.min_ "0"
-    , DA.step_ "1"
-    , DA.value_ $ show $ round Types.defaultSettings.pitchBendHalfRange
-    , DL.numberOn DL.input $ wires.settings <#> \s value ->
-        wires.setSettings $ s {pitchBendHalfRange = value}
-    ] []
+  DD.div_ [
+  DD.label
+    [ DA.style $ Style.pitchBendHalfRangeInputStyle <$> wires.settings ]
+    [ DD.text_ I18n.pitchBendHalfRangeInputLabel
+    , DD.input
+        [ DA.xtypeNumber
+        , DA.min_ "0"
+        , DA.step_ "1"
+        , DA.value_ $ show $ round Types.defaultSettings.pitchBendHalfRange
+        -- Only display when in Instrument mode:
+        , DA.style_ Style.inputStyleStr
+        -- Listen for value changes:
+        , DL.numberOn DL.input $ wires.settings <#> \s value ->
+            wires.setSettings $ s {pitchBendHalfRange = value}
+        ] []
+    ]]
+
 
 --------------------------------------------------------------------------------
 
@@ -206,22 +236,29 @@ pitchBendHalfRangeInput wires =
 
 midiOutputDropdown :: D.NutWith Types.Wires
 midiOutputDropdown wires =
-  DD.div
-    -- Automatically request MIDI access on startup
-    [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess ]
-    -- If no access...
-    [ DH.guard (isNothing <$> wires.midiAccess) $
-        -- Display a button to try requesting MIDI access again
-        DD.button
-          [ DL.click_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess ]
-          [ DD.text_ "No MIDI access. Try again" ]
-    -- If we have MIDI access...
-    , DH.guard (not <<< isNothing <$> wires.midiAccess) $
-        -- Display the list of available outputs
-        DD.select
-          [ DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess ]
-          [ midiOutputEntries wires ]
+  DD.label
+    [ DA.style_ Style.midiOutputDropdownStyle ]
+    [ DD.text_ I18n.midiOutputDropdownLabel
+    , DD.div
+        -- Automatically request MIDI access on startup
+        [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess
+        , DA.style_ $ Style.inputStyleStr
+        ]
+        -- If no access...
+        [ DH.guard (isNothing <$> wires.midiAccess) $
+            -- Display a button to try requesting MIDI access again
+            DD.button
+              [ DL.click_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess ]
+              [ DD.text_ "No MIDI access. Try again" ]
+        -- If we have MIDI access...
+        , DH.guard (not <<< isNothing <$> wires.midiAccess) $
+            -- Display the list of available outputs
+            DD.select
+              [ DL.change $ midiOutputSelectionCallback wires <$> wires.midiAccess ]
+              [ midiOutputEntries wires ]
+        ]
     ]
+
 
 
 setAccess :: forall error
