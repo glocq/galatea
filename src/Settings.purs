@@ -150,7 +150,7 @@ ccDropdown dimension initialIndex wires =
     [ DL.change $ ccSelectionCallback dimension wires
     -- Initialize dropdown to given initial index:
     , Self.self_ $ \elt -> Select.setSelectedIndex initialIndex $? Select.fromElement elt
-    ] $ ccOption <$> (0 .. 127) -- Warning: do not modify the range without reading
+    ] $ ccOption <$> (0 .. 119) -- Warning: do not modify the range without reading
                                 -- the warning in ccSelectionCallback first
 
 

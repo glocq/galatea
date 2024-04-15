@@ -5,6 +5,7 @@ import Prelude
 import Data.Int                (round, toNumber)
 import Data.Maybe              (Maybe(..))
 import Data.Tuple.Nested       (type (/\), (/\))
+import Data.Traversable        (traverse_)
 import Control.Monad.ST        (ST)
 import Control.Monad.ST.Ref    (STRef, new, read, write)
 import Control.Monad.ST.Global (Global, toEffect)
@@ -103,10 +104,10 @@ subscribeToSurfaceEvents wires subscriptionRef stateRef outputRef settings = do
     \message -> do
       oldState <- toEffect $ read stateRef
       output   <- toEffect $ read outputRef
-      newState <- surfaceMsgCallback output
-                                     oldState
+      newState <- surfaceMsgCallback wires
                                      settings
-                                     wires.setPitchBendLimits
+                                     output
+                                     oldState
                                      message
       _ <- toEffect $ write newState stateRef
       pure unit
@@ -121,16 +122,36 @@ subscribeToSurfaceEvents wires subscriptionRef stateRef outputRef settings = do
 ----------------------------------------------------
 
 
-surfaceMsgCallback :: Maybe MIDI.Output
-                   -> PlayingState
+surfaceMsgCallback :: Types.Wires
                    -> Types.Settings
-                   -> (Maybe (Number /\ Number) -> Effect Unit)
+                   -> Maybe MIDI.Output
+                   -> PlayingState
                    -> Types.SurfaceMsg
                    -> Effect PlayingState
-surfaceMsgCallback output state settings setLimits msg = do
+surfaceMsgCallback wires settings output state msg = do
+  case settings.mode of
+    Types.Instrument -> processMsgInInstrumentMode wires
+                                                   settings
+                                                   output
+                                                   state
+                                                   msg
+    Types.CC -> processMsgInCCMode wires
+                                   settings
+                                   output
+                                   msg
 
-  -- First we'll determine how to convert from normalized position on
-  -- the control to pitch value (in MIDI semitones):
+
+
+
+processMsgInInstrumentMode :: Types.Wires
+                           -> Types.Settings
+                           -> Maybe MIDI.Output
+                           -> PlayingState
+                           -> Types.SurfaceMsg
+                           -> Effect PlayingState
+processMsgInInstrumentMode wires settings output state msg = do
+  -- First we'll determine how to convert from normalisendMidion on
+  -- the control to pitch value (in MIDI ssendMidi
   let toPitch x = if settings.leftPitch == settings.rightPitch
     -- A pretty specific edge case, to avoid dividing by zero:
     then settings.leftPitch
@@ -142,8 +163,7 @@ surfaceMsgCallback output state settings setLimits msg = do
   -- that can arise depending on whether the pointer was just put in/out of contact/moved,
   -- and whether a note was already playing. There is probably a way to reduce
   -- code duplication here?
-  newState <- case (state.currentNote /\ msg) of
-
+  case (state.currentNote /\ msg) of
     -- No note was playing, and the pointer was not put in contact: do nothing:
     (Nothing /\ Types.Stop _) -> pure {currentNote: Nothing}
     (Nothing /\ Types.Move _) -> pure {currentNote: Nothing}
@@ -157,8 +177,11 @@ surfaceMsgCallback output state settings setLimits msg = do
       maybeSendMidi output $ MIDI.noteOn settings.midiChannel newNote properties.pressure
       maybeSendMidi output $ MIDI.pitchBend' settings.pitchBendHalfRange settings.midiChannel $ pitch - toNumber newNote
       maybeSendMidi output $ MIDI.aftertouch settings.midiChannel properties.pressure
+      -- Tell control surface to display pitch bend limits
+      let newState = {currentNote: Just newNote}
+      wires.setPitchBendLimits $ allowedRange settings newState
       -- A note is now playing:
-      pure {currentNote: Just newNote}
+      pure newState
 
     -- Pointer moved while we were playing: no NoteOn, but update pitch bend
     -- and aftertouch:
@@ -184,14 +207,30 @@ surfaceMsgCallback output state settings setLimits msg = do
     -- we're not playing anymore:
     (Just note /\ Types.Stop _) -> do
       maybeSendMidi output $ MIDI.noteOff settings.midiChannel note Nothing
+      -- Tell control surface to stop displaying pitch bend limits
+      wires.setPitchBendLimits Nothing
       -- No note is playing anymore
       pure {currentNote: Nothing}
 
 
-  -- Tell control surface to display pitch bend limits
-  setLimits $ allowedRange settings newState
-  -- Return current playing state
-  pure newState
+
+processMsgInCCMode :: Types.Wires
+                   -> Types.Settings
+                   -> Maybe MIDI.Output
+                   -> Types.SurfaceMsg
+                   -> Effect PlayingState
+processMsgInCCMode wires settings output msg = do
+  x /\ y /\ pressure <- case msg of
+    Types.Start ptr -> pure $ ptr.x /\ ptr.y /\ ptr.pressure
+    Types.Move  ptr -> pure $ ptr.x /\ ptr.y /\ ptr.pressure
+    Types.Stop  ptr -> do
+                       wires.setPitchBendLimits Nothing
+                       pure $ ptr.x /\ ptr.y /\ 0.0
+  traverse_ (maybeSendMidi output) $
+    MIDI.cc settings.midiChannel settings.horizontalCC x <>
+    MIDI.cc settings.midiChannel settings.verticalCC   y <>
+    MIDI.cc settings.midiChannel settings.pressureCC   pressure
+  pure { currentNote: Nothing }
 
 
 

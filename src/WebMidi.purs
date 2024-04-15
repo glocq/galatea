@@ -1,7 +1,7 @@
 module WebMidi
   ( Access, Output, Message
   , requestAccess, getOutput, outputIDs, outputName, sendMessage
-  , noteOn, noteOff, pitchBend, pitchBend', aftertouch
+  , noteOn, noteOff, pitchBend, pitchBend', aftertouch, cc
   ) where
 
 import Prelude
@@ -74,9 +74,9 @@ noteOff channel note velocity =
 pitchBend :: Int -> Number -> Message
 pitchBend channel value = do
   let normalizedValue = toIntRange 16_383 $ (value + 1.0) / 2.0
-  let lsb = normalizedValue `div` 128 -- least significant bit
-  let msb = normalizedValue `mod` 128 -- most significant bit
-  Message [224 + channel, msb, lsb]
+  let msb = normalizedValue `div` 128 -- most significant bit
+  let lsb = normalizedValue `mod` 128 -- least significant bit
+  Message [224 + channel, lsb, msb]
 
 -- | A convenience function where you specify the pitch bend value in semitones.
 pitchBend' :: Number -> Int -> Number -> Message
@@ -92,6 +92,20 @@ aftertouch channel value =
   Message [ 208 + channel
           , toIntRange 127 value
           ]
+
+-- | MIDI CC message. First argument is the MIDI channel, second argument is
+-- | the CC number. Third argument is the value, between 0.0 and 1.0. If the
+-- | CC type has an associated LSB message, it is sent alongside.
+-- | Warning: does not check for invalid channel or CC number.
+cc :: Int -> Int -> Number -> Array Message
+cc channel ccType value = do
+  let normalizedValue = toIntRange 16_383 value
+  let msb = normalizedValue `div` 128 -- most significant bit
+  let lsb = normalizedValue `mod` 128 -- least significant bit
+  if ccType <= 31 then [ Message [176 + channel, ccType     , msb]
+                       , Message [176 + channel, ccType + 32, lsb]
+                       ]
+                  else [ Message [176 + channel, ccType     , msb] ]
 
 toIntRange :: Int -> Number -> Int
 toIntRange n = clamp 0 n <<< round <<< mul (toNumber n)
