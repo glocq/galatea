@@ -254,7 +254,7 @@ midiOutputDropdown wires =
             -- Display a button to try requesting MIDI access again
             DD.button
               [ DL.click_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess ]
-              [ DD.text_ "No MIDI access. Try again" ]
+              [ DD.text_ I18n.noMidiAccess ]
         -- If we have MIDI access...
         , DH.guard (not <<< isNothing <$> wires.midiAccess) $
             -- Display the list of available outputs
