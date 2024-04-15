@@ -10,8 +10,6 @@ import Control.Monad.ST.Global (Global)
 import FRP.Event           as FRP
 import Deku.Core           as D
 import Deku.Do             as Deku
-import Deku.DOM            as DD
-import Deku.DOM.Attributes as DA
 import Deku.Hooks          as DH
 -- Local modules
 import Types as Types
@@ -52,9 +50,6 @@ component = do
                 }
 
     -- The actual web app:
-    DD.div
-      [ DA.id_ "galatea" ]
-      [ ControlSurface.component wires
-      , Settings.component       wires
-      , midiEmitter              wires
-      ]
+    ControlSurface.component wires <>
+      Settings.component     wires <>
+      midiEmitter            wires
