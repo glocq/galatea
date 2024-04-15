@@ -9,7 +9,7 @@ import Deku.DOM.Attributes as DA
 data Language = English | French
 
 currentLanguage :: Language
-currentLanguage = French
+currentLanguage = English
 
 
 bottomText :: D.Nut
@@ -83,7 +83,7 @@ pitchBendHalfRangeInputLabel = case currentLanguage of
 midiOutputDropdownLabel :: String
 midiOutputDropdownLabel = case currentLanguage of
   English -> "MIDI output:"
-  French  -> "Sortie MIDI"
+  French  -> "Sortie MIDI :"
 
 noMidiAccess :: String
 noMidiAccess = case currentLanguage of

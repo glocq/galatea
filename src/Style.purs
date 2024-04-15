@@ -108,10 +108,8 @@ ccDropdownStyle = DC.render do
 
 pitchBendHalfRangeInputStyle :: Types.Settings -> String
 pitchBendHalfRangeInputStyle settings = DC.render $ case settings.mode of
-  Types.Instrument -> pure unit
-  Types.CC         -> do
-    textStyle'
-    CSS.display CSS.displayNone
+  Types.Instrument -> textStyle'
+  Types.CC         -> CSS.display CSS.displayNone
 
 
 midiOutputDropdownStyle :: String
