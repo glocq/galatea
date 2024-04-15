@@ -7,3 +7,14 @@ export function offsetX(event) {
 export function offsetY(event) {
   return event.offsetY;
 }
+
+export const requestFullscreenImpl = elem => () => {
+  elem.requestFullscreen().then(
+    (access) => {
+      return true;
+    },
+    (reason) => {
+      return false;
+    }
+  );
+}

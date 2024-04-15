@@ -37,7 +37,8 @@ import MidiTable (ccName)
 -- | for choosing the application settings.
 component :: D.NutWith Types.Wires
 component wires = DD.div_ $
-  [ modeButton Types.Instrument
+  [ fullscreenButton
+  , modeButton Types.Instrument
   , modeButton Types.CC
   , leftPitchInput
   , rightPitchInput
@@ -49,6 +50,13 @@ component wires = DD.div_ $
 
 
 --------------------------------------------------------------------------------
+
+fullscreenButton :: D.NutWith Types.Wires
+fullscreenButton wires =
+  DD.button
+    [ DL.click_ $ const $ wires.setFullscreen.push unit ]
+    [ DD.text_ "Set Fullscreen" ]
+
 
 --------------------------
 -- Control Mode Buttons --

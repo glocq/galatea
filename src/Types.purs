@@ -16,8 +16,9 @@ import WebMidi as MIDI
 -- | to transmit events and polls
 type Wires =
   -- Events
-  { surfaceOut         :: EventIO SurfaceMsg
-  , updateMidiOutput   :: EventIO (Maybe MIDI.Output)
+  { surfaceOut       :: EventIO SurfaceMsg
+  , updateMidiOutput :: EventIO (Maybe MIDI.Output)
+  , setFullscreen    :: EventIO Unit
   -- Polls and poll updaters
     -- Settings
     , settings    :: Poll Settings

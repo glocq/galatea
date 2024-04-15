@@ -2,14 +2,16 @@ module ControlSurface where
 
 -- General-purposes modules
 import Prelude
-import Data.Maybe        (Maybe(..))
-import Data.Tuple.Nested (type (/\), (/\))
-import Data.Array        ((..))
-import Data.Foldable     (for_, elem)
-import Data.Int          (floor, ceil, toNumber)
-import Data.Number       (pow, pi)
-import Effect            (Effect)
-import Effect.Exception  (throw)
+import Data.Maybe              (Maybe(..))
+import Data.Tuple.Nested       (type (/\), (/\))
+import Data.Array              ((..))
+import Data.Foldable           (for_, elem)
+import Data.Int                (floor, ceil, toNumber)
+import Data.Number             (pow, pi)
+import Control.Monad.ST.Global (toEffect)
+import Effect                  (Effect)
+import Effect.Aff              (runAff_)
+import Effect.Exception        (throw)
 -- Web utilities
 import Web.DOM.Element               (Element)
 import Web.Event.Event               as Web.Event
@@ -28,8 +30,9 @@ import Deku.DOM.Attributes as DA
 import Deku.DOM.Listeners  as DL
 import Deku.DOM.Self       as Self
 import FRP.Poll            as Poll
+import FRP.Event           as Event
 -- Local modules
-import Util  (($?), onResize_, onResizeE_, offsetX, offsetY)
+import Util  (($?), requestFullscreen, onResize_, onResizeE_, offsetX, offsetY)
 import Types as Types
 
 
@@ -48,6 +51,7 @@ component wires = Deku.do
   -- The actual component: a div with three stacked canvases inside
   DD.div
     [ DA.id_ "controlSurface"
+    , Self.self_ $ subscribeToFullscreen wires.setFullscreen.event
     , DA.style_ $ DC.render $ do
         CSS.position CSS.relative -- This should NOT be static, lest the children not be stacked
         CSS.border CSS.solid (CSS.px 1.0) (CSS.black)
@@ -64,6 +68,21 @@ component wires = Deku.do
      , backgroundCanvas width height
      ] <@> wires)
 
+
+
+
+-------------------------
+-- Fullscreen handling --
+-------------------------
+
+subscribeToFullscreen :: Event.Event Unit -> Element -> Effect Unit
+subscribeToFullscreen event element =
+  -- Discard the unsubscriber, since we won't ever need it:
+  void $ toEffect $
+  -- Subscribe to requests to switch to fullscreen:
+  Event.subscribe event $ const $
+  -- Actually do the switching:
+  runAff_ (const mempty) $ requestFullscreen element
 
 
 -----------------------

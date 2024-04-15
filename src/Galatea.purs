@@ -28,8 +28,9 @@ component = do
   midiEmitter <- MidiEmitter.component
 
   -- Application graph: events
-  surfaceOut         <- FRP.create -- messages that come out of the control surface
-  updateMidiOutput   <- FRP.create -- currently selected MIDI output
+  surfaceOut       <- FRP.create -- messages that come out of the control surface
+  updateMidiOutput <- FRP.create -- currently selected MIDI output
+  setFullscreen    <- FRP.create
 
   pure $ Deku.do
 
@@ -41,6 +42,7 @@ component = do
     -- Putting together all application graph edges, aka communication channels:
     let wires = { surfaceOut:         surfaceOut
                 , updateMidiOutput:   updateMidiOutput
+                , setFullscreen:      setFullscreen
                 , settings:           settings
                 , setSettings:        setSettings
                 , midiAccess:         midiAccess

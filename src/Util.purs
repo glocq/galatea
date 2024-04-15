@@ -2,9 +2,11 @@ module Util where
 
 -- General-purpose modules
 import Prelude
-import Effect            (Effect)
-import Data.Traversable  (traverse_)
-import Data.Maybe        (Maybe(..))
+import Effect           (Effect)
+import Data.Traversable (traverse_)
+import Data.Maybe       (Maybe(..))
+import Effect.Aff       (Aff)
+import Control.Promise  (Promise, toAffE)
 -- Web utilities
 import Web.DOM.Element           as Element
 import Web.Resize.Observer       as RO
@@ -14,6 +16,17 @@ import Web.UIEvent.MouseEvent    as Mouse
 import FRP.Poll       (Poll)
 import Deku.Attribute (Attribute)
 import Deku.DOM.Self  (self_)
+
+
+
+----------------
+-- Fullscreen --
+----------------
+
+foreign import requestFullscreenImpl :: Element.Element -> Effect (Promise Boolean)
+
+requestFullscreen :: Element.Element -> Aff Boolean
+requestFullscreen element = toAffE $ requestFullscreenImpl element
 
 
 ----------------------------------------
