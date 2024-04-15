@@ -1,21 +1,46 @@
 module Style where
 
 import Prelude
-import Color        as Color
-import Deku.CSS     as DC
-import CSS          as CSS
-import CSS.Common   as CSSC
-import Types        as Types
+import Data.NonEmpty (NonEmpty(..))
+import Color         as Color
+import Deku.CSS      as DC
+import CSS           as CSS
+import CSS.Common    as CSSC
+import CSS.TextAlign as CT
+import CSS.FontStyle as CF
+import Types         as Types
 
 
 
-inputStyle :: CSS.StyleM Unit
-inputStyle = do
+textStyle' :: CSS.StyleM Unit
+textStyle' = CSS.fontFamily [] $ NonEmpty CSS.sansSerif []
+
+textStyle :: String
+textStyle = DC.render textStyle'
+
+inputStyle' :: CSS.StyleM Unit
+inputStyle' = do
+  textStyle'
   CSS.display CSS.inline
   CSS.marginLeft $ CSS.px 10.0
 
-inputStyleStr :: String
-inputStyleStr = DC.render inputStyle
+inputStyle :: String
+inputStyle = DC.render inputStyle'
+
+
+titleStyle :: String
+titleStyle = DC.render do
+  textStyle'
+  CT.textAlign CT.center
+  CSS.marginTop    $ CSS.px 50.0
+  CSS.marginBottom $ CSS.px 30.0
+
+subtitleStyle :: String
+subtitleStyle = DC.render do
+  textStyle'
+  CT.textAlign CT.center
+  CF.fontStyle CF.italic
+  CSS.marginBottom $ CSS.px 30.0
 
 
 settingsContainerStyle :: String
@@ -30,6 +55,7 @@ settingsContainerStyle =
 
 fullscreenButtonStyle :: String
 fullscreenButtonStyle = DC.render do
+  textStyle'
   CSS.fontSize      $ CSS.px 18.0
   CSS.paddingTop    $ CSS.px  7.0
   CSS.paddingBottom $ CSS.px  7.0
@@ -47,6 +73,7 @@ modeButtonStyle :: Types.Mode -> Types.Settings -> String
 modeButtonStyle mode settings =
   "border: none;" <>
   DC.render do
+    textStyle'
     CSS.fontSize $ CSS.px 18.0
     CSS.paddingTop    $ CSS.px  7.0
     CSS.paddingBottom $ CSS.px  7.0
@@ -69,22 +96,26 @@ ccDropdownGroupStyle settings =
     case settings.mode of
       Types.Instrument -> CSS.display CSS.displayNone
       Types.CC         -> CSS.display CSS.flex
+    textStyle'
     CSS.flexDirection CSS.column
     CSS.alignItems CSSC.center
 
 ccDropdownStyle :: String
 ccDropdownStyle = DC.render do
-  inputStyle
+  inputStyle'
   CSS.width $ CSS.px 150.0
 
 
 pitchBendHalfRangeInputStyle :: Types.Settings -> String
 pitchBendHalfRangeInputStyle settings = DC.render $ case settings.mode of
   Types.Instrument -> pure unit
-  Types.CC         -> CSS.display CSS.displayNone
+  Types.CC         -> do
+    textStyle'
+    CSS.display CSS.displayNone
 
 
 midiOutputDropdownStyle :: String
 midiOutputDropdownStyle = DC.render do
+  textStyle'
   CSS.marginTop    $ CSS.px 20.0
   CSS.marginBottom $ CSS.px 20.0

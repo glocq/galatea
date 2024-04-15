@@ -1,10 +1,33 @@
 module Internationalization where
 
+import Prelude
+import Deku.Core           as D
+import Deku.DOM            as DD
+import Deku.DOM.Attributes as DA
+
 
 data Language = English | French
 
 currentLanguage :: Language
 currentLanguage = French
+
+
+bottomText :: D.Nut
+bottomText = case currentLanguage of
+  English -> DD.text_ "Made with love by "                      <>
+             DD.a [DA.href_ "https://glocq.github.io/en/"]
+                  [DD.text_ "Grégoire Locqueville"]             <>
+             DD.text_ ". Source code available "                <>
+             DD.a [DA.href_ "https://github.com/glocq/galatea"]
+                  [DD.text_ "on Github"]                        <>
+             DD.text_ "."
+  French  -> DD.text_ "Fait avec amour par "                    <>
+             DD.a [DA.href_ "https://glocq.github.io/"]
+                  [DD.text_ "Grégoire Locqueville"]             <>
+             DD.text_ ". Code source disponible "               <>
+             DD.a [DA.href_ "https://github.com/glocq/galatea"]
+                  [DD.text_ "sur Github"]                       <>
+             DD.text_ "."
 
 
 setFullscreen :: String

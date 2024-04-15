@@ -7,8 +7,8 @@ import Effect                 (Effect)
 -- Deku-related module:
 import Deku.Toplevel (runInBody)
 -- Local module:
-import Galatea as Galatea
+import Webpage as Webpage
 
 
 main :: Effect Unit
-main = runInBody =<< liftST Galatea.component
+main = runInBody =<< liftST Webpage.component

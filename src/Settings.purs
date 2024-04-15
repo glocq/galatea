@@ -92,13 +92,14 @@ modeButton mode wires =
 
 leftPitchInput :: D.NutWith Types.Wires
 leftPitchInput wires =
-  DD.label_
+  DD.label
+    [ DA.style_ Style.textStyle ]
     [ DD.text_ I18n.leftPitchInputLabel
     , DD.input
         [ DA.xtypeNumber
         , DA.step_ "1"
         , DA.value_ $ show $ round Types.defaultSettings.leftPitch
-        , DA.style_ Style.inputStyleStr
+        , DA.style_ Style.inputStyle
         -- Upon changing value:
         , DL.numberOn DL.input $ wires.settings <#> \s value ->
             wires.setSettings $ s {leftPitch = value}
@@ -110,13 +111,14 @@ leftPitchInput wires =
 
 rightPitchInput :: D.NutWith Types.Wires
 rightPitchInput wires =
-  DD.label_
+  DD.label
+    [ DA.style_ Style.textStyle ]
     [ DD.text_ I18n.rightPitchInputLabel
     , DD.input
         [ DA.xtypeNumber
         , DA.step_ "1"
         , DA.value_ $ show $ round Types.defaultSettings.rightPitch
-        , DA.style_ Style.inputStyleStr
+        , DA.style_ Style.inputStyle
         -- Upon changing value:
         , DL.numberOn DL.input $ wires.settings <#> \s value ->
             wires.setSettings $ s {rightPitch = value}
@@ -127,7 +129,8 @@ rightPitchInput wires =
 
 midiChannelInput :: D.NutWith Types.Wires
 midiChannelInput wires =
-  DD.label_
+  DD.label
+    [ DA.style_ Style.textStyle ]
     [ DD.text_ I18n.midiChannelInputLabel
     , DD.input
         [ DA.xtypeNumber
@@ -138,7 +141,7 @@ midiChannelInput wires =
         , DL.numberOn DL.input $ wires.settings <#> \s value ->
             -- Important: we convert from the 1-16 range to the 0-15 range here:
             wires.setSettings $ s {midiChannel = round value - 1}
-        , DA.style_ Style.inputStyleStr
+        , DA.style_ Style.inputStyle
         ] []
     ]
 
@@ -156,13 +159,16 @@ ccDropdownGroup wires =
     -- Only display when in CC mode:
     [ DA.style $ Style.ccDropdownGroupStyle <$> wires.settings
     ]
-    [ DD.label_ [ DD.text_ I18n.horizontalCCInputLabel
+    [ DD.label  [ DA.style_ Style.textStyle ]
+                [ DD.text_ I18n.horizontalCCInputLabel
                 , ccDropdown Types.Horizontal 10 wires
                 ]
-    , DD.label_ [ DD.text_ I18n.verticalCCInputLabel
+    , DD.label  [ DA.style_ Style.textStyle ]
+                [ DD.text_ I18n.verticalCCInputLabel
                 , ccDropdown Types.Vertical    1 wires
                 ]
-    , DD.label_ [ DD.text_ I18n.pressureCCInputLabel
+    , DD.label  [ DA.style_ Style.textStyle ]
+                [ DD.text_ I18n.pressureCCInputLabel
                 , ccDropdown Types.Pressure    2 wires
                 ]
     ]
@@ -209,7 +215,6 @@ ccSelectionCallback dimension wires = wires.settings <#> callback
 
 pitchBendHalfRangeInput :: D.NutWith Types.Wires
 pitchBendHalfRangeInput wires =
-  DD.div_ [
   DD.label
     [ DA.style $ Style.pitchBendHalfRangeInputStyle <$> wires.settings ]
     [ DD.text_ I18n.pitchBendHalfRangeInputLabel
@@ -219,12 +224,12 @@ pitchBendHalfRangeInput wires =
         , DA.step_ "1"
         , DA.value_ $ show $ round Types.defaultSettings.pitchBendHalfRange
         -- Only display when in Instrument mode:
-        , DA.style_ Style.inputStyleStr
+        , DA.style_ Style.inputStyle
         -- Listen for value changes:
         , DL.numberOn DL.input $ wires.settings <#> \s value ->
             wires.setSettings $ s {pitchBendHalfRange = value}
         ] []
-    ]]
+    ]
 
 
 --------------------------------------------------------------------------------
@@ -242,7 +247,7 @@ midiOutputDropdown wires =
     , DD.div
         -- Automatically request MIDI access on startup
         [ Self.self_ \_ -> runAff_ (setAccess wires) MIDI.requestAccess
-        , DA.style_ $ Style.inputStyleStr
+        , DA.style_ $ Style.inputStyle
         ]
         -- If no access...
         [ DH.guard (isNothing <$> wires.midiAccess) $
