@@ -9,7 +9,8 @@ import Data.Foldable           (for_, elem)
 import Data.Int                (floor, ceil, toNumber)
 import Data.Number             (pow, pi)
 import Effect                  (Effect)
-import Effect.Aff              (runAff_)
+import Effect.Aff              (runAff_, launchAff_, delay, Milliseconds(..))
+import Effect.Class            (liftEffect)
 import Effect.Exception        (throw)
 -- Web utilities
 import Web.DOM.Element               (Element)
@@ -118,35 +119,36 @@ paintPointer :: Number -> Number
              -> Types.PointerState
              -> CanvasElt.HTMLCanvasElement
              -> Effect Unit
-paintPointer width height pointerState canvas = do
-  let context = Canvas.context2D canvas
-  let wholeCanvas = { x: 0.0
-                    , y: 0.0
-                    , width:  width
-                    , height: height
-                    }
-  Canvas.clearRect context wholeCanvas
-  case pointerState of
-    Nothing -> pure unit
-    Just st -> if st.pressure <= 0.0 then pure unit else do
-      let x = st.x
-      let y = st.y
-      let pressure = st.pressure
-      Canvas.clearRect context wholeCanvas
-      -- Draw a couple of concentric circles whose opacity is dependent on pressure.
-      -- The formulae for radius and opacity have been determined through
-      -- trial and error, which is why they look arbitrary:
-      -- (TODO improve/rationalize those? I think they are not beautiful but
-      -- they feel good when I play the tablet)
-      for_ (0..5) $ \i -> do
-        let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
-        let iNum = toNumber i
-        let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
-        let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 (6.0 * pressure - iNum) `pow` 2.0
-        Canvas.beginPath    context
-        Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
-        Canvas.arc          context x y radius 0.0 (2.0 * pi) true
-        Canvas.fill         context
+paintPointer width height pointerState canvas =
+  launchAff_ $ delay (Milliseconds 0.0) *> liftEffect do
+    let context = Canvas.context2D canvas
+    let wholeCanvas = { x: 0.0
+                      , y: 0.0
+                      , width:  width
+                      , height: height
+                      }
+    Canvas.clearRect context wholeCanvas
+    case pointerState of
+      Nothing -> pure unit
+      Just st -> if st.pressure <= 0.0 then pure unit else do
+        let x = st.x
+        let y = st.y
+        let pressure = st.pressure
+        Canvas.clearRect context wholeCanvas
+        -- Draw a couple of concentric circles whose opacity is dependent on pressure.
+        -- The formulae for radius and opacity have been determined through
+        -- trial and error, which is why they look arbitrary:
+        -- (TODO improve/rationalize those? I think they are not beautiful but
+        -- they feel good when I play the tablet)
+        for_ (0..5) $ \i -> do
+          let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
+          let iNum = toNumber i
+          let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
+          let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 (6.0 * pressure - iNum) `pow` 2.0
+          Canvas.beginPath    context
+          Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
+          Canvas.arc          context x y radius 0.0 (2.0 * pi) true
+          Canvas.fill         context
 
 
 
@@ -224,7 +226,7 @@ drawPitchBendLimits :: Maybe (Number /\ Number)
                     -> Element
                     -> Effect Unit
 drawPitchBendLimits limits width height element =
-  case CanvasElt.fromElement element of
+  launchAff_ $ delay (Milliseconds 0.0) *> liftEffect case CanvasElt.fromElement element of
     Nothing -> throw "Error: Element is not a canvas."
     Just canvas -> do
       let context = Canvas.context2D canvas
@@ -269,7 +271,7 @@ backgroundCanvas width height wires =
 -- TODO cleanup and deal with edge cases better
 drawBackground :: Types.Settings -> Number -> Number -> Element -> Effect Unit
 drawBackground settings width height element = do
-  case settings.leftPitch == settings.rightPitch of
+  launchAff_ $ delay (Milliseconds 0.0) *> liftEffect case settings.leftPitch == settings.rightPitch of
     true  -> pure unit
     false -> case CanvasElt.fromElement element of
       Nothing     -> throw "Error: Element is not a canvas."
