@@ -30,10 +30,6 @@ Controller (CC) Mode sends rawer data to let you free to interpret your gestures
 
 In Controller Mode, only CC messages are sent — no NoteOns and NoteOffs. You directly select the CC controller to which you wish to see the horizontal, vertical position, and pressure of your stylus (if applicable) mapped, and the whole range of possible output values is used. In particular, although the playing area still displays a piano keyboard-like mask, this has no influence on the data sent.
 
-## Settings
-
-* Instrument Mode/CC Mode: In Instrument Mode, a NoteOn MIDI message is sent each time you click the 
-
 ## Interface
 
 ### The Playing Area
