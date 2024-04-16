@@ -8,7 +8,6 @@ import Data.Array              ((..))
 import Data.Foldable           (for_, elem)
 import Data.Int                (floor, ceil, toNumber)
 import Data.Number             (pow, pi)
-import Control.Monad.ST.Global (toEffect)
 import Effect                  (Effect)
 import Effect.Aff              (runAff_)
 import Effect.Exception        (throw)
@@ -40,7 +39,7 @@ import Types as Types
 
 -- | Galatea's central component: a surface where the user is to use
 -- | their pointer device (tablet or mouse).
-component :: D.NutWith Types.Wires
+component :: Types.Wires -> D.Nut
 component wires = Deku.do
 
   -- Define the internal state:
@@ -78,7 +77,7 @@ component wires = Deku.do
 subscribeToFullscreen :: Event.Event Unit -> Element -> Effect Unit
 subscribeToFullscreen event element =
   -- Discard the unsubscriber, since we won't ever need it:
-  void $ toEffect $
+  void $
   -- Subscribe to requests to switch to fullscreen:
   Event.subscribe event $ const $
   -- Actually do the switching:
@@ -96,7 +95,7 @@ subscribeToFullscreen event element =
 foregroundCanvas :: Poll.Poll Number -> Poll.Poll Number
                  -> Poll.Poll Types.PointerState
                  -> (Types.PointerState -> Effect Unit)
-                 -> D.NutWith Types.Wires
+                 -> Types.Wires -> D.Nut
 foregroundCanvas width height pointerState setPointerState wires =
   DD.canvas
     [ DA.id_ "foregroundCanvas"
@@ -210,7 +209,7 @@ onPointerMove wires setPointerState width height ptrEvt = do
 -- | The middle canvas lets the user know which zone they should avoid
 -- | when in instrument mode, due to pitch bend limitations.
 middleCanvas :: Poll.Poll Number -> Poll.Poll Number
-             -> D.NutWith Types.Wires
+             -> Types.Wires -> D.Nut
 middleCanvas width height wires =
   DD.canvas
     [ DA.id_ "middleCanvas"
@@ -257,7 +256,7 @@ drawPitchBendLimits limits width height element =
 -- | separation between adjacent notes, but to the central position
 -- | of each note.
 backgroundCanvas :: Poll.Poll Number -> Poll.Poll Number
-                 -> D.NutWith Types.Wires
+                 -> Types.Wires -> D.Nut
 backgroundCanvas width height wires =
   DD.canvas
     [ DA.id_ "backgroundCanvas"

@@ -18,6 +18,7 @@ package:
     - tuples
     - web-events
     - web-html
+    - web-pointerevents
 workspace:
   packageSet:
     registry: 50.7.0
@@ -26,52 +27,46 @@ workspace:
   extraPackages:
     hyrule:
       git: "https://github.com/mikesol/purescript-hyrule.git"
-      ref: "f388528a9aaa25a5307bf67f6ed12d2097620929"
+      ref: "0492d5e"
       dependencies:
         - effect
+        - aff
+        - free
+        - avar
+        - filterable
         - js-timers
         - unsafe-reference
         - web-html
         - web-uievents
-    bolson:
-      git: "https://github.com/mikesol/purescript-bolson.git"
-      ref: "d87900ceedfb81814bd282be464fa4c8a55677c2"
-      dependencies:
-        - hyrule
-        - fast-vect
-        - foreign-object
     deku:
       git: "https://github.com/mikesol/purescript-deku.git"
       subdir: deku
-      ref: "22d4756f831ac57c17286bae86a5799a0377239a"
+      ref: "5a6222a"
       dependencies:
-        - record
-        - bolson
-    deku-core:
-      git: "https://github.com/mikesol/purescript-deku.git"
-      subdir: deku-core
-      ref: "22d4756f831ac57c17286bae86a5799a0377239a"
-      dependencies:
-        - catenable-lists
-        - stringutils
-        - bolson
+        - hyrule
+        - untagged-union
     deku-css:
       git: "https://github.com/mikesol/purescript-deku.git"
       subdir: deku-css
-      ref: "22d4756f831ac57c17286bae86a5799a0377239a"
+      ref: "5a6222a"
       dependencies:
-        - deku-core
         - hyrule
-        - css
+        - untagged-union
+    deku-core:
+      git: "https://github.com/mikesol/purescript-deku.git"
+      subdir: deku-core
+      ref: "5a6222a"
+      dependencies:
+        - hyrule
+        - untagged-union
     deku-dom:
       git: "https://github.com/mikesol/purescript-deku.git"
       subdir: deku-dom
-      ref: "22d4756f831ac57c17286bae86a5799a0377239a"
+      ref: "5a6222a"
       dependencies:
-        - bolson
-        - aff
-        - web-pointerevents
+        - hyrule
         - web-touchevents
+        - untagged-union
     tidy:
       repo: "https://github.com/natefaubion/purescript-tidy.git"
       version: "v0.10.0"

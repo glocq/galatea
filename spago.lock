@@ -20,13 +20,15 @@ workspace:
         - tuples
         - web-events
         - web-html
+        - web-pointerevents
       test_dependencies: []
       build_plan:
         - aff
         - aff-promise
         - arrays
+        - assert
+        - avar
         - bifunctors
-        - bolson
         - catenable-lists
         - colors
         - console
@@ -45,11 +47,11 @@ workspace:
         - enums
         - exceptions
         - exists
-        - fast-vect
         - filterable
         - foldable-traversable
         - foreign
         - foreign-object
+        - free
         - functions
         - functors
         - gen
@@ -62,6 +64,7 @@ workspace:
         - lazy
         - lcg
         - lists
+        - literals
         - maybe
         - media-types
         - newtype
@@ -75,6 +78,7 @@ workspace:
         - partial
         - prelude
         - profunctor
+        - psci-support
         - quickcheck
         - quickcheck-laws
         - random
@@ -84,7 +88,6 @@ workspace:
         - safe-coerce
         - st
         - strings
-        - stringutils
         - tailrec
         - these
         - transformers
@@ -94,6 +97,7 @@ workspace:
         - unfoldable
         - unsafe-coerce
         - unsafe-reference
+        - untagged-union
         - web-dom
         - web-events
         - web-file
@@ -585,50 +589,44 @@ workspace:
       z3: 0.0.2
       zipperarray: 2.0.0
   extra_packages:
-    bolson:
-      git: https://github.com/mikesol/purescript-bolson.git
-      ref: d87900ceedfb81814bd282be464fa4c8a55677c2
-      dependencies:
-        - fast-vect
-        - foreign-object
-        - hyrule
     deku:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 22d4756f831ac57c17286bae86a5799a0377239a
+      ref: 5a6222a
       subdir: deku
       dependencies:
-        - bolson
-        - record
+        - hyrule
+        - untagged-union
     deku-core:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 22d4756f831ac57c17286bae86a5799a0377239a
+      ref: 5a6222a
       subdir: deku-core
       dependencies:
-        - bolson
-        - catenable-lists
-        - stringutils
+        - hyrule
+        - untagged-union
     deku-css:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 22d4756f831ac57c17286bae86a5799a0377239a
+      ref: 5a6222a
       subdir: deku-css
       dependencies:
-        - css
-        - deku-core
         - hyrule
+        - untagged-union
     deku-dom:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 22d4756f831ac57c17286bae86a5799a0377239a
+      ref: 5a6222a
       subdir: deku-dom
       dependencies:
-        - aff
-        - bolson
-        - web-pointerevents
+        - hyrule
+        - untagged-union
         - web-touchevents
     hyrule:
       git: https://github.com/mikesol/purescript-hyrule.git
-      ref: f388528a9aaa25a5307bf67f6ed12d2097620929
+      ref: 0492d5e
       dependencies:
+        - aff
+        - avar
         - effect
+        - filterable
+        - free
         - js-timers
         - unsafe-reference
         - web-html
@@ -743,6 +741,25 @@ packages:
       - tuples
       - unfoldable
       - unsafe-coerce
+  assert:
+    type: registry
+    version: 6.0.0
+    integrity: sha256-hCSYcCw9kj3qujoDcriWhCdmrpPZoguSPDZhEMnTl3A=
+    dependencies:
+      - console
+      - effect
+      - prelude
+  avar:
+    type: registry
+    version: 5.0.0
+    integrity: sha256-e7hf0x4hEpcygXP0LtvfvAQ49Bbj2aWtZT3gqM///0A=
+    dependencies:
+      - aff
+      - effect
+      - either
+      - exceptions
+      - functions
+      - maybe
   bifunctors:
     type: registry
     version: 6.0.0
@@ -753,14 +770,6 @@ packages:
       - newtype
       - prelude
       - tuples
-  bolson:
-    type: git
-    url: https://github.com/mikesol/purescript-bolson.git
-    rev: d87900ceedfb81814bd282be464fa4c8a55677c2
-    dependencies:
-      - fast-vect
-      - foreign-object
-      - hyrule
   catenable-lists:
     type: registry
     version: 7.0.0
@@ -853,38 +862,35 @@ packages:
   deku:
     type: git
     url: https://github.com/mikesol/purescript-deku.git
-    rev: 22d4756f831ac57c17286bae86a5799a0377239a
+    rev: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
     subdir: deku
     dependencies:
-      - bolson
-      - record
+      - hyrule
+      - untagged-union
   deku-core:
     type: git
     url: https://github.com/mikesol/purescript-deku.git
-    rev: 22d4756f831ac57c17286bae86a5799a0377239a
+    rev: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
     subdir: deku-core
     dependencies:
-      - bolson
-      - catenable-lists
-      - stringutils
+      - hyrule
+      - untagged-union
   deku-css:
     type: git
     url: https://github.com/mikesol/purescript-deku.git
-    rev: 22d4756f831ac57c17286bae86a5799a0377239a
+    rev: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
     subdir: deku-css
     dependencies:
-      - css
-      - deku-core
       - hyrule
+      - untagged-union
   deku-dom:
     type: git
     url: https://github.com/mikesol/purescript-deku.git
-    rev: 22d4756f831ac57c17286bae86a5799a0377239a
+    rev: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
     subdir: deku-dom
     dependencies:
-      - aff
-      - bolson
-      - web-pointerevents
+      - hyrule
+      - untagged-union
       - web-touchevents
   distributive:
     type: registry
@@ -940,23 +946,6 @@ packages:
     version: 6.0.0
     integrity: sha256-A0JQHpTfo1dNOj9U5/Fd3xndlRSE0g2IQWOGor2yXn8=
     dependencies:
-      - unsafe-coerce
-  fast-vect:
-    type: registry
-    version: 1.2.0
-    integrity: sha256-0DbjZ1E95RSqwb5STe7LtdI60TloSHxOa9rkYBQyt2I=
-    dependencies:
-      - arrays
-      - distributive
-      - filterable
-      - foldable-traversable
-      - lists
-      - maybe
-      - ordered-collections
-      - prelude
-      - profunctor
-      - tuples
-      - unfoldable
       - unsafe-coerce
   filterable:
     type: registry
@@ -1016,6 +1005,25 @@ packages:
       - tuples
       - typelevel-prelude
       - unfoldable
+  free:
+    type: registry
+    version: 7.1.0
+    integrity: sha256-JAumgEsGSzJCNLD8AaFvuX7CpqS5yruCngi6yI7+V5k=
+    dependencies:
+      - catenable-lists
+      - control
+      - distributive
+      - either
+      - exists
+      - foldable-traversable
+      - invariant
+      - lazy
+      - maybe
+      - prelude
+      - tailrec
+      - transformers
+      - tuples
+      - unsafe-coerce
   functions:
     type: registry
     version: 6.0.0
@@ -1058,9 +1066,13 @@ packages:
   hyrule:
     type: git
     url: https://github.com/mikesol/purescript-hyrule.git
-    rev: f388528a9aaa25a5307bf67f6ed12d2097620929
+    rev: 0492d5e4252f4bffef6c2a8d37fe1335a8cf7354
     dependencies:
+      - aff
+      - avar
       - effect
+      - filterable
+      - free
       - js-timers
       - unsafe-reference
       - web-html
@@ -1143,6 +1155,18 @@ packages:
       - tailrec
       - tuples
       - unfoldable
+  literals:
+    type: registry
+    version: 1.0.2
+    integrity: sha256-RaeNZPykLhdJXYcx463xiwyC3XghrSQAqqeU28tDNW0=
+    dependencies:
+      - integers
+      - maybe
+      - numbers
+      - partial
+      - prelude
+      - typelevel-prelude
+      - unsafe-coerce
   maybe:
     type: registry
     version: 6.0.0
@@ -1261,6 +1285,14 @@ packages:
       - newtype
       - prelude
       - tuples
+  psci-support:
+    type: registry
+    version: 6.0.0
+    integrity: sha256-C6ql4P9TEP06hft/1Z5QumPA4yARR4VIxDdhmL1EO+Y=
+    dependencies:
+      - console
+      - effect
+      - prelude
   quickcheck:
     type: registry
     version: 8.0.1
@@ -1364,17 +1396,6 @@ packages:
       - tuples
       - unfoldable
       - unsafe-coerce
-  stringutils:
-    type: registry
-    version: 0.0.12
-    integrity: sha256-t63QWBlp49U0nRqUcFryKflSJsNKGTQAHKjn24/+ooI=
-    dependencies:
-      - arrays
-      - integers
-      - maybe
-      - partial
-      - prelude
-      - strings
   tailrec:
     type: registry
     version: 6.1.0
@@ -1459,6 +1480,22 @@ packages:
     integrity: sha256-zU7BhfJU14nXQRZG9iADsp0mSiKhz07OcKyjRB2YT+Y=
     dependencies:
       - prelude
+  untagged-union:
+    type: registry
+    version: 1.0.0
+    integrity: sha256-XSSsmsOIq+JvPaXUdKCW2nGQZ2D+Ku5J6FbWj812AN0=
+    dependencies:
+      - assert
+      - console
+      - effect
+      - foreign
+      - foreign-object
+      - literals
+      - maybe
+      - newtype
+      - psci-support
+      - tuples
+      - unsafe-coerce
   web-dom:
     type: registry
     version: 6.0.0

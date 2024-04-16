@@ -34,7 +34,7 @@ import MidiTable            (ccName)
 
 -- | A component which displays an interface
 -- | for choosing the application settings.
-component :: D.NutWith Types.Wires
+component :: Types.Wires -> D.Nut
 component wires =
   DD.div
     [ DA.style_ Style.settingsContainerStyle
@@ -53,7 +53,7 @@ component wires =
 
 --------------------------------------------------------------------------------
 
-fullscreenButton :: D.NutWith Types.Wires
+fullscreenButton :: Types.Wires -> D.Nut
 fullscreenButton wires =
   DD.button
     [ DL.click_ $ const $ wires.setFullscreen.push unit
@@ -66,7 +66,7 @@ fullscreenButton wires =
 -- Control Mode Buttons --
 --------------------------
 
-modeSwitcher :: D.NutWith Types.Wires
+modeSwitcher :: Types.Wires -> D.Nut
 modeSwitcher wires =
   DD.div
     [ DA.style_ $ Style.modeSwitcherStyle ]
@@ -74,7 +74,7 @@ modeSwitcher wires =
     , modeButton Types.CC         wires
     ]
 
-modeButton :: Types.Mode -> D.NutWith Types.Wires
+modeButton :: Types.Mode -> Types.Wires -> D.Nut
 modeButton mode wires =
   DD.button
     -- Style button based on whether it corresponds to the selected mode:
@@ -90,7 +90,7 @@ modeButton mode wires =
 --------------------------------------------------------------------------------
 
 
-leftPitchInput :: D.NutWith Types.Wires
+leftPitchInput :: Types.Wires -> D.Nut
 leftPitchInput wires =
   DD.label
     [ DA.style_ Style.textStyle ]
@@ -109,7 +109,7 @@ leftPitchInput wires =
 
 
 
-rightPitchInput :: D.NutWith Types.Wires
+rightPitchInput :: Types.Wires -> D.Nut
 rightPitchInput wires =
   DD.label
     [ DA.style_ Style.textStyle ]
@@ -127,7 +127,7 @@ rightPitchInput wires =
 
 
 
-midiChannelInput :: D.NutWith Types.Wires
+midiChannelInput :: Types.Wires -> D.Nut
 midiChannelInput wires =
   DD.label
     [ DA.style_ Style.textStyle ]
@@ -153,7 +153,7 @@ midiChannelInput wires =
 -- CC Message Type Selection Dropdown --
 ----------------------------------------
 
-ccDropdownGroup :: D.NutWith Types.Wires
+ccDropdownGroup :: Types.Wires -> D.Nut
 ccDropdownGroup wires =
   DD.div
     -- Only display when in CC mode:
@@ -175,7 +175,7 @@ ccDropdownGroup wires =
 
 
 
-ccDropdown :: Types.SurfaceDimension -> Int -> D.NutWith Types.Wires
+ccDropdown :: Types.SurfaceDimension -> Int -> Types.Wires -> D.Nut
 ccDropdown dimension initialIndex wires = DD.select
 
     -- Listen to value changes:
@@ -213,7 +213,7 @@ ccSelectionCallback dimension wires = wires.settings <#> callback
 
 --------------------------------------------------------------------------------
 
-pitchBendHalfRangeInput :: D.NutWith Types.Wires
+pitchBendHalfRangeInput :: Types.Wires -> D.Nut
 pitchBendHalfRangeInput wires =
   DD.label
     [ DA.style $ Style.pitchBendHalfRangeInputStyle <$> wires.settings ]
@@ -239,7 +239,7 @@ pitchBendHalfRangeInput wires =
 ------------------------------------
 
 
-midiOutputDropdown :: D.NutWith Types.Wires
+midiOutputDropdown :: Types.Wires -> D.Nut
 midiOutputDropdown wires =
   DD.label
     [ DA.style_ Style.midiOutputDropdownStyle ]
@@ -295,7 +295,7 @@ midiOutputSelectionCallback wires maybeAccess event = do
     _ -> pure unit
 
 
-midiOutputEntries :: D.NutWith Types.Wires
+midiOutputEntries :: Types.Wires -> D.Nut
 midiOutputEntries wires = wires.midiAccess <#~> case _ of
   Nothing -> mempty
   Just access -> D.fixed $ MIDI.outputIDs access <#> \id ->

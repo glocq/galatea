@@ -6,11 +6,9 @@ import Data.Int                (round, toNumber)
 import Data.Maybe              (Maybe(..))
 import Data.Tuple.Nested       (type (/\), (/\))
 import Data.Traversable        (traverse_)
-import Control.Monad.ST        (ST)
-import Control.Monad.ST.Ref    (STRef, new, read, write)
-import Control.Monad.ST.Global (Global, toEffect)
 import Effect                  (Effect)
 import Effect.Class.Console    (log)
+import Effect.Ref              (Ref, new, read, write)
 -- Deku-related modules
 import Deku.Core           as D
 import Deku.DOM            as DD
@@ -34,7 +32,7 @@ import WebMidi as MIDI
 -- | There is probably a more elegant way to do that while keeping concerns
 -- | separated, using polls. I'll wait until I'm more seasoned in Deku to
 -- | revisit this.
-component :: ST Global (D.NutWith Types.Wires)
+component :: Effect (Types.Wires -> D.Nut)
 component = do
 
   -- We use the ST monad to keep track of some state, because I had problems
@@ -73,46 +71,46 @@ defaultPlayingState = { currentNote: Nothing }
 -----------------------------------------------
 
 subscribeToOutputUpdates :: Types.Wires
-                         -> STRef Global (ST Global Unit)
-                         -> STRef Global (Maybe MIDI.Output)
+                         -> Ref (Effect Unit)
+                         -> Ref (Maybe MIDI.Output)
                          -> Effect Unit
 subscribeToOutputUpdates wires subscriptionRef outputRef = do
   -- Get former subscription from reference:
-  formerSubscription <- toEffect $ read subscriptionRef
+  formerSubscription <- read subscriptionRef
   -- Actually unsubscribe:
-  toEffect formerSubscription
+  formerSubscription
   -- Make a new subscription:
-  newSubscription <- toEffect $ Event.subscribe wires.updateMidiOutput.event $
-    \output -> toEffect $ void $ write output outputRef
+  newSubscription <- Event.subscribe wires.updateMidiOutput.event $
+    \output -> write output outputRef
   -- Store subscription for the when we'll want to unsubscribe:
-  void $ toEffect $ write newSubscription subscriptionRef
+  write newSubscription subscriptionRef
 
 
 subscribeToSurfaceEvents :: Types.Wires
-                         -> STRef Global (ST Global Unit)
-                         -> STRef Global (PlayingState)
-                         -> STRef Global (Maybe MIDI.Output)
+                         -> Ref (Effect Unit)
+                         -> Ref (PlayingState)
+                         -> Ref (Maybe MIDI.Output)
                          -> Types.Settings
                          -> Effect Unit
 subscribeToSurfaceEvents wires subscriptionRef stateRef outputRef settings = do
   -- Get former subscription from reference:
-  formerSubscription <- toEffect $ read subscriptionRef
+  formerSubscription <- read subscriptionRef
   -- Actually unsubscribe:
-  toEffect formerSubscription
+  formerSubscription
   -- Make a new subscription:
-  newSubscription <- toEffect $ Event.subscribe wires.surfaceOut.event $
+  newSubscription <- Event.subscribe wires.surfaceOut.event $
     \message -> do
-      oldState <- toEffect $ read stateRef
-      output   <- toEffect $ read outputRef
+      oldState <- read stateRef
+      output   <- read outputRef
       newState <- surfaceMsgCallback wires
                                      settings
                                      output
                                      oldState
                                      message
-      _ <- toEffect $ write newState stateRef
+      write newState stateRef
       pure unit
   -- Store subscription for the when we'll want to unsubscribe:
-  void $ toEffect $ write newSubscription subscriptionRef
+  write newSubscription subscriptionRef
 
 
 
