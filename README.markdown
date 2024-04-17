@@ -2,6 +2,8 @@
 
 Galatea is a cross-platform tool that lets you turn your mouse or graphic tablet into a continuous MIDI controller. It was developed with graphic tablets in mind, but it should work with anything that is recognized by your browser as a "pointer".
 
+You can see a demo of a music piece played using Galatea [here](https://www.youtube.com/watch?v=aAOH1WcN19U) (note that Galatea only turns your pointer data into MIDI, and you will need a MIDI synthesizer such as [Surge](https://surge-synthesizer.github.io/) to play audio. Additionally, the demo makes use of a custom pitch correction algorithm implemented in [PlugData](https://plugdata.org/).
+
 ## Quick Start
 
 1. Open the application which you want to receive MIDI data (your DAW, Pure Data, Max/MSP...)
