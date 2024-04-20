@@ -1,8 +1,7 @@
 module Webpage where
 
 import Prelude
-import Control.Monad.ST        (ST)
-import Control.Monad.ST.Global (Global)
+import Effect                  (Effect)
 import Deku.Core               as D
 import Deku.DOM                as DD
 import Deku.DOM.Attributes     as DA
@@ -13,7 +12,7 @@ import Internationalization    as I18n
 import Galatea                 as Galatea
 
 
-component :: ST Global D.Nut
+component :: Effect D.Nut
 component = do
   galatea <- Galatea.component
   pure $ DD.h1  [ DA.style_ Style.titleStyle ]

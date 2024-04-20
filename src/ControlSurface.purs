@@ -8,7 +8,6 @@ import Data.Array              ((..))
 import Data.Foldable           (for_, elem)
 import Data.Int                (floor, ceil, toNumber)
 import Data.Number             (pow, pi)
-import Control.Monad.ST.Global (toEffect)
 import Effect                  (Effect)
 import Effect.Aff              (runAff_)
 import Effect.Exception        (throw)
@@ -32,7 +31,11 @@ import Deku.DOM.Self       as Self
 import FRP.Poll            as Poll
 import FRP.Event           as Event
 -- Local modules
-import Util  (($?), requestFullscreen, onResize_, onResizeE_, offsetX, offsetY)
+import Util  ( ($?)
+             , nullDelay
+             , requestFullscreen
+             , onResize_, onResizeE_
+             , offsetX, offsetY)
 import Types as Types
 
 
@@ -40,7 +43,7 @@ import Types as Types
 
 -- | Galatea's central component: a surface where the user is to use
 -- | their pointer device (tablet or mouse).
-component :: D.NutWith Types.Wires
+component :: Types.Wires -> D.Nut
 component wires = Deku.do
 
   -- Define the internal state:
@@ -78,7 +81,7 @@ component wires = Deku.do
 subscribeToFullscreen :: Event.Event Unit -> Element -> Effect Unit
 subscribeToFullscreen event element =
   -- Discard the unsubscriber, since we won't ever need it:
-  void $ toEffect $
+  void $
   -- Subscribe to requests to switch to fullscreen:
   Event.subscribe event $ const $
   -- Actually do the switching:
@@ -96,7 +99,8 @@ subscribeToFullscreen event element =
 foregroundCanvas :: Poll.Poll Number -> Poll.Poll Number
                  -> Poll.Poll Types.PointerState
                  -> (Types.PointerState -> Effect Unit)
-                 -> D.NutWith Types.Wires
+                 -> Types.Wires
+                 -> D.Nut
 foregroundCanvas width height pointerState setPointerState wires =
   DD.canvas
     [ DA.id_ "foregroundCanvas"
@@ -111,7 +115,7 @@ foregroundCanvas width height pointerState setPointerState wires =
 
   where action updater w h ptr ev = do
           updater wires setPointerState w h ev
-          paintPointer w h ptr $? ptrEventToElement ev
+          nullDelay $ paintPointer w h ptr $? ptrEventToElement ev
 
 
 
@@ -120,34 +124,34 @@ paintPointer :: Number -> Number
              -> CanvasElt.HTMLCanvasElement
              -> Effect Unit
 paintPointer width height pointerState canvas = do
-  let context = Canvas.context2D canvas
-  let wholeCanvas = { x: 0.0
-                    , y: 0.0
-                    , width:  width
-                    , height: height
-                    }
-  Canvas.clearRect context wholeCanvas
-  case pointerState of
-    Nothing -> pure unit
-    Just st -> if st.pressure <= 0.0 then pure unit else do
-      let x = st.x
-      let y = st.y
-      let pressure = st.pressure
-      Canvas.clearRect context wholeCanvas
-      -- Draw a couple of concentric circles whose opacity is dependent on pressure.
-      -- The formulae for radius and opacity have been determined through
-      -- trial and error, which is why they look arbitrary:
-      -- (TODO improve/rationalize those? I think they are not beautiful but
-      -- they feel good when I play the tablet)
-      for_ (0..5) $ \i -> do
-        let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
-        let iNum = toNumber i
-        let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
-        let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 (6.0 * pressure - iNum) `pow` 2.0
-        Canvas.beginPath    context
-        Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
-        Canvas.arc          context x y radius 0.0 (2.0 * pi) true
-        Canvas.fill         context
+    let context = Canvas.context2D canvas
+    let wholeCanvas = { x: 0.0
+                      , y: 0.0
+                      , width:  width
+                      , height: height
+                      }
+    Canvas.clearRect context wholeCanvas
+    case pointerState of
+      Nothing -> pure unit
+      Just st -> if st.pressure <= 0.0 then pure unit else do
+        let x = st.x
+        let y = st.y
+        let pressure = st.pressure
+        Canvas.clearRect context wholeCanvas
+        -- Draw a couple of concentric circles whose opacity is dependent on pressure.
+        -- The formulae for radius and opacity have been determined through
+        -- trial and error, which is why they look arbitrary:
+        -- (TODO improve/rationalize those? I think they are not beautiful but
+        -- they feel good when I play the tablet)
+        for_ (0..5) $ \i -> do
+          let bound b value = max 0.0 $ min b $ value -- bound value between 0 and b
+          let iNum = toNumber i
+          let radius  = 3.0 * ((iNum + 1.0) `pow` 2.0)
+          let opacity = bound (1.0 / (iNum + 1.0)) $ bound 1.0 (6.0 * pressure - iNum) `pow` 2.0
+          Canvas.beginPath    context
+          Canvas.setFillStyle context $ Color.rgba' 0.0 0.0 1.0 opacity
+          Canvas.arc          context x y radius 0.0 (2.0 * pi) true
+          Canvas.fill         context
 
 
 
@@ -210,13 +214,18 @@ onPointerMove wires setPointerState width height ptrEvt = do
 -- | The middle canvas lets the user know which zone they should avoid
 -- | when in instrument mode, due to pitch bend limitations.
 middleCanvas :: Poll.Poll Number -> Poll.Poll Number
-             -> D.NutWith Types.Wires
+             -> Types.Wires
+             -> D.Nut
 middleCanvas width height wires =
   DD.canvas
     [ DA.id_ "middleCanvas"
     , DA.style_ $ DC.render $ layerProperties 1
     , onResizeE_ resizeCanvas
-    , Self.self $ drawPitchBendLimits <$> wires.pitchBendLimits <*> width <*> height
+    , Self.self $
+        (\l w h elt -> nullDelay $ drawPitchBendLimits l w h elt)
+          <$> wires.pitchBendLimits
+          <*> width
+          <*> height
     ] []
 
 
@@ -257,19 +266,24 @@ drawPitchBendLimits limits width height element =
 -- | separation between adjacent notes, but to the central position
 -- | of each note.
 backgroundCanvas :: Poll.Poll Number -> Poll.Poll Number
-                 -> D.NutWith Types.Wires
+                 -> Types.Wires
+                 -> D.Nut
 backgroundCanvas width height wires =
   DD.canvas
     [ DA.id_ "backgroundCanvas"
     , DA.style_ $ DC.render $ layerProperties 0
-    , Self.self $ drawBackground <$> wires.settings <*> width <*> height
+    , Self.self $
+        (\s w h elt -> nullDelay $ drawBackground s w h elt)
+          <$> wires.settings
+          <*> width
+          <*> height
     , onResizeE_ $ \elt w h -> resizeCanvas elt w h
     ] []
 
 
 -- TODO cleanup and deal with edge cases better
 drawBackground :: Types.Settings -> Number -> Number -> Element -> Effect Unit
-drawBackground settings width height element = do
+drawBackground settings width height element =
   case settings.leftPitch == settings.rightPitch of
     true  -> pure unit
     false -> case CanvasElt.fromElement element of

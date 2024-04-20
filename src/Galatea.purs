@@ -4,21 +4,21 @@ module Galatea where
 import Prelude
 import Data.Maybe              (Maybe(..))
 import Data.Tuple.Nested       ((/\))
-import Control.Monad.ST        (ST)
-import Control.Monad.ST.Global (Global)
+import Control.Monad.ST.Global (toEffect)
+import Effect                  (Effect)
 -- Deku-related modules
 import FRP.Event           as FRP
 import Deku.Core           as D
 import Deku.Do             as Deku
 import Deku.Hooks          as DH
 -- Local modules
-import Types as Types
+import Types          as Types
 import ControlSurface as ControlSurface
 import Settings       as Settings
 import MidiEmitter    as MidiEmitter
 
 
-component :: ST Global D.Nut
+component :: Effect D.Nut
 component = do
 
   -- This component is wrapped in ST Global, so we have to extract its value
@@ -26,9 +26,9 @@ component = do
   midiEmitter <- MidiEmitter.component
 
   -- Application graph: events
-  surfaceOut       <- FRP.create -- messages that come out of the control surface
-  updateMidiOutput <- FRP.create -- currently selected MIDI output
-  setFullscreen    <- FRP.create
+  surfaceOut       <- toEffect FRP.create -- messages that come out of the control surface
+  updateMidiOutput <- toEffect FRP.create -- currently selected MIDI output
+  setFullscreen    <- toEffect FRP.create
 
   pure $ Deku.do
 

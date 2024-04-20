@@ -5,7 +5,8 @@ import Prelude
 import Effect           (Effect)
 import Data.Traversable (traverse_)
 import Data.Maybe       (Maybe(..))
-import Effect.Aff       (Aff)
+import Effect.Class     (liftEffect)
+import Effect.Aff       (Aff, launchAff_, delay, Milliseconds(..))
 import Control.Promise  (Promise, toAffE)
 -- Web utilities
 import Web.DOM.Element           as Element
@@ -27,6 +28,14 @@ foreign import requestFullscreenImpl :: Element.Element -> Effect (Promise Boole
 
 requestFullscreen :: Element.Element -> Aff Boolean
 requestFullscreen element = toAffE $ requestFullscreenImpl element
+
+
+-------------------------
+-- Wait for next cycle --
+-------------------------
+
+nullDelay :: Effect Unit -> Effect Unit
+nullDelay effect = launchAff_ $ delay (Milliseconds 0.0) *> liftEffect effect
 
 
 ----------------------------------------
