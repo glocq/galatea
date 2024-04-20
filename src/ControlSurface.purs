@@ -9,8 +9,7 @@ import Data.Foldable           (for_, elem)
 import Data.Int                (floor, ceil, toNumber)
 import Data.Number             (pow, pi)
 import Effect                  (Effect)
-import Effect.Aff              (runAff_, launchAff_, delay, Milliseconds(..))
-import Effect.Class            (liftEffect)
+import Effect.Aff              (runAff_)
 import Effect.Exception        (throw)
 -- Web utilities
 import Web.DOM.Element               (Element)
@@ -32,7 +31,11 @@ import Deku.DOM.Self       as Self
 import FRP.Poll            as Poll
 import FRP.Event           as Event
 -- Local modules
-import Util  (($?), requestFullscreen, onResize_, onResizeE_, offsetX, offsetY)
+import Util  ( ($?)
+             , nullDelay
+             , requestFullscreen
+             , onResize_, onResizeE_
+             , offsetX, offsetY)
 import Types as Types
 
 
@@ -96,7 +99,8 @@ subscribeToFullscreen event element =
 foregroundCanvas :: Poll.Poll Number -> Poll.Poll Number
                  -> Poll.Poll Types.PointerState
                  -> (Types.PointerState -> Effect Unit)
-                 -> Types.Wires -> D.Nut
+                 -> Types.Wires
+                 -> D.Nut
 foregroundCanvas width height pointerState setPointerState wires =
   DD.canvas
     [ DA.id_ "foregroundCanvas"
@@ -111,7 +115,7 @@ foregroundCanvas width height pointerState setPointerState wires =
 
   where action updater w h ptr ev = do
           updater wires setPointerState w h ev
-          paintPointer w h ptr $? ptrEventToElement ev
+          nullDelay $ paintPointer w h ptr $? ptrEventToElement ev
 
 
 
@@ -119,8 +123,7 @@ paintPointer :: Number -> Number
              -> Types.PointerState
              -> CanvasElt.HTMLCanvasElement
              -> Effect Unit
-paintPointer width height pointerState canvas =
-  launchAff_ $ delay (Milliseconds 0.0) *> liftEffect do
+paintPointer width height pointerState canvas = do
     let context = Canvas.context2D canvas
     let wholeCanvas = { x: 0.0
                       , y: 0.0
@@ -211,13 +214,18 @@ onPointerMove wires setPointerState width height ptrEvt = do
 -- | The middle canvas lets the user know which zone they should avoid
 -- | when in instrument mode, due to pitch bend limitations.
 middleCanvas :: Poll.Poll Number -> Poll.Poll Number
-             -> Types.Wires -> D.Nut
+             -> Types.Wires
+             -> D.Nut
 middleCanvas width height wires =
   DD.canvas
     [ DA.id_ "middleCanvas"
     , DA.style_ $ DC.render $ layerProperties 1
     , onResizeE_ resizeCanvas
-    , Self.self $ drawPitchBendLimits <$> wires.pitchBendLimits <*> width <*> height
+    , Self.self $
+        (\l w h elt -> nullDelay $ drawPitchBendLimits l w h elt)
+          <$> wires.pitchBendLimits
+          <*> width
+          <*> height
     ] []
 
 
@@ -226,7 +234,7 @@ drawPitchBendLimits :: Maybe (Number /\ Number)
                     -> Element
                     -> Effect Unit
 drawPitchBendLimits limits width height element =
-  launchAff_ $ delay (Milliseconds 0.0) *> liftEffect case CanvasElt.fromElement element of
+  case CanvasElt.fromElement element of
     Nothing -> throw "Error: Element is not a canvas."
     Just canvas -> do
       let context = Canvas.context2D canvas
@@ -258,20 +266,25 @@ drawPitchBendLimits limits width height element =
 -- | separation between adjacent notes, but to the central position
 -- | of each note.
 backgroundCanvas :: Poll.Poll Number -> Poll.Poll Number
-                 -> Types.Wires -> D.Nut
+                 -> Types.Wires
+                 -> D.Nut
 backgroundCanvas width height wires =
   DD.canvas
     [ DA.id_ "backgroundCanvas"
     , DA.style_ $ DC.render $ layerProperties 0
-    , Self.self $ drawBackground <$> wires.settings <*> width <*> height
+    , Self.self $
+        (\s w h elt -> nullDelay $ drawBackground s w h elt)
+          <$> wires.settings
+          <*> width
+          <*> height
     , onResizeE_ $ \elt w h -> resizeCanvas elt w h
     ] []
 
 
 -- TODO cleanup and deal with edge cases better
 drawBackground :: Types.Settings -> Number -> Number -> Element -> Effect Unit
-drawBackground settings width height element = do
-  launchAff_ $ delay (Milliseconds 0.0) *> liftEffect case settings.leftPitch == settings.rightPitch of
+drawBackground settings width height element =
+  case settings.leftPitch == settings.rightPitch of
     true  -> pure unit
     false -> case CanvasElt.fromElement element of
       Nothing     -> throw "Error: Element is not a canvas."

@@ -12,7 +12,7 @@ import Deku.Core           as D
 import Deku.Do             as Deku
 import Deku.Hooks          as DH
 -- Local modules
-import Types as Types
+import Types          as Types
 import ControlSurface as ControlSurface
 import Settings       as Settings
 import MidiEmitter    as MidiEmitter

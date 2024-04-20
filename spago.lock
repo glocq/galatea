@@ -591,28 +591,28 @@ workspace:
   extra_packages:
     deku:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 5a6222a
+      ref: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
       subdir: deku
       dependencies:
         - hyrule
         - untagged-union
     deku-core:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 5a6222a
+      ref: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
       subdir: deku-core
       dependencies:
         - hyrule
         - untagged-union
     deku-css:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 5a6222a
+      ref: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
       subdir: deku-css
       dependencies:
         - hyrule
         - untagged-union
     deku-dom:
       git: https://github.com/mikesol/purescript-deku.git
-      ref: 5a6222a
+      ref: 5a6222ab2f7e3d60fdaac1d7e52e27482c57343f
       subdir: deku-dom
       dependencies:
         - hyrule
@@ -620,7 +620,7 @@ workspace:
         - web-touchevents
     hyrule:
       git: https://github.com/mikesol/purescript-hyrule.git
-      ref: 0492d5e
+      ref: 0492d5e4252f4bffef6c2a8d37fe1335a8cf7354
       dependencies:
         - aff
         - avar
