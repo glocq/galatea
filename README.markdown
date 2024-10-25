@@ -56,7 +56,7 @@ Right under the playing area, the "Set Fullscreen" button... sets the playing ar
 Galatea is free software, you can inspect the code and run it from your machine if you do not want to rely on someone else (me)'s webpage. Security reasons make it a little more complicated than it could be, though, so as a prerequisite, you need to be familiar with the command line, and have Node.js and npm installed.
 
 1. Download this repository, and `cd` into it using the terminal.
-2. Compile the code by running `npx spago bundle --outfile webpage/index.js`. This produces a file `index.js` in the `webpage/` directory.
+2. Compile the code by running `npm install && npx spago bundle --outfile webpage/index.js`. This produces a file `index.js` in the `webpage/` directory.
 3. Serve the files by running `npx serve` from inside `webpage/`.
 4. Open the page with your browser. `npx serve` should have given you the address; it looks something like `http://localhost:3000`
 
